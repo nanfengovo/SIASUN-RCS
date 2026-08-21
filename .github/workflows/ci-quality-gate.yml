@@ -18,6 +18,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
 
       - name: Cache NuGet Packages
         uses: actions/cache@v4
@@ -49,16 +50,16 @@ jobs:
         with:
           version: 9
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
           cache-dependency-path: Siasun.RCS/FrontEnd/SIASUN.RCS.UI/pnpm-lock.yaml
 
       - name: Install Frontend Dependencies
         working-directory: ./Siasun.RCS/FrontEnd/SIASUN.RCS.UI
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Run TypeScript Type Check & Build Test
         working-directory: ./Siasun.RCS/FrontEnd/SIASUN.RCS.UI
