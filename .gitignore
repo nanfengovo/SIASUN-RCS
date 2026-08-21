@@ -92,7 +92,6 @@ coverage/
 
 # 本地私密配置 (如包含真实密码的环境配置)
 **/appsettings.local.json
-**/appsettings.Secrets.json
 **/appsettings.Development.json.user
 
 ###############################################################################
@@ -135,8 +134,8 @@ lerna-debug.log*
 rcs-offline-bundle*.tar.gz
 rcs-bundle*.tar.gz
 
-# 容器数据卷挂载本地临时目录
-data/
-postgres_data/
-mssql_data/
-redis_data/
+# 容器数据卷挂载本地临时目录 (仅限根目录)
+/data/
+/postgres_data/
+/mssql_data/
+/redis_data/
