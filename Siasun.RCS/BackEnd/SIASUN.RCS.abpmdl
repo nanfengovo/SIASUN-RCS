@@ -1,0 +1,114 @@
+{
+  "template": "app",
+  "imports": {
+    "Volo.Abp.LeptonXLiteTheme": {
+      "version": "5.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.Account": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.OpenIddict": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.Identity": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.TenantManagement": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.SettingManagement": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.PermissionManagement": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.FeatureManagement": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    },
+    "Volo.Abp.BlobStoring.Database": {
+      "version": "10.5.0",
+      "isInstalled": true,
+      "creationTime": "08/20/2026 01:02:31 +00:00"
+    }
+  },
+  "folders": {
+    "items": {
+      "src": {},
+      "test": {}
+    }
+  },
+  "packages": {
+    "SIASUN.RCS.Application": {
+      "path": "src/SIASUN.RCS.Application/SIASUN.RCS.Application.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.Application.Tests": {
+      "path": "test/SIASUN.RCS.Application.Tests/SIASUN.RCS.Application.Tests.abppkg",
+      "folder": "test"
+    },
+    "SIASUN.RCS.Domain.Shared": {
+      "path": "src/SIASUN.RCS.Domain.Shared/SIASUN.RCS.Domain.Shared.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.Application.Contracts": {
+      "path": "src/SIASUN.RCS.Application.Contracts/SIASUN.RCS.Application.Contracts.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.HttpApi": {
+      "path": "src/SIASUN.RCS.HttpApi/SIASUN.RCS.HttpApi.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.HttpApi.Client": {
+      "path": "src/SIASUN.RCS.HttpApi.Client/SIASUN.RCS.HttpApi.Client.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.EntityFrameworkCore.Tests": {
+      "path": "test/SIASUN.RCS.EntityFrameworkCore.Tests/SIASUN.RCS.EntityFrameworkCore.Tests.abppkg",
+      "folder": "test"
+    },
+    "SIASUN.RCS.EntityFrameworkCore": {
+      "path": "src/SIASUN.RCS.EntityFrameworkCore/SIASUN.RCS.EntityFrameworkCore.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.TestBase": {
+      "path": "test/SIASUN.RCS.TestBase/SIASUN.RCS.TestBase.abppkg",
+      "folder": "test"
+    },
+    "SIASUN.RCS.Domain.Tests": {
+      "path": "test/SIASUN.RCS.Domain.Tests/SIASUN.RCS.Domain.Tests.abppkg",
+      "folder": "test"
+    },
+    "SIASUN.RCS.HttpApi.Client.ConsoleTestApp": {
+      "path": "test/SIASUN.RCS.HttpApi.Client.ConsoleTestApp/SIASUN.RCS.HttpApi.Client.ConsoleTestApp.abppkg",
+      "folder": "test"
+    },
+    "SIASUN.RCS.DbMigrator": {
+      "path": "src/SIASUN.RCS.DbMigrator/SIASUN.RCS.DbMigrator.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.HttpApi.Host": {
+      "path": "src/SIASUN.RCS.HttpApi.Host/SIASUN.RCS.HttpApi.Host.abppkg",
+      "folder": "src"
+    },
+    "SIASUN.RCS.Domain": {
+      "path": "src/SIASUN.RCS.Domain/SIASUN.RCS.Domain.abppkg",
+      "folder": "src"
+    }
+  }
+}

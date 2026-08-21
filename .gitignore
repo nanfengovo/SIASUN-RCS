@@ -1,0 +1,142 @@
+###############################################################################
+#                           1. 操作系统临时文件 (OS Artifacts)                #
+###############################################################################
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+
+###############################################################################
+#                       2. IDE 与开发工具配置 (IDE & Editor Files)             #
+###############################################################################
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+*.DotSettings.user
+
+# VS Code & Cursor (忽略本地状态与缓存)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.cursor/
+
+# JetBrains Rider / ReSharper
+.idea/
+_ReSharper*/
+*.resharper
+*.sublime-workspace
+
+###############################################################################
+#                 3. 后端 .NET / ABP 编译与运行产物 (Backend .NET 8)            #
+###############################################################################
+# 编译输出目录
+**/[Bb]in/
+**/[Oo]bj/
+**/[Oo]ut/
+**/publish/
+
+# 本地包缓存与生成文件
+**/nupkgs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# 日志文件与审计落盘 (防止日志撑爆 Git)
+**/[Ll]ogs/
+**/[Ll]og/
+*.log
+*.clef
+*.txt.bak
+
+# 测试覆盖率与结果
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+
+# 本地数据库与临时数据文件
+*.mdf
+*.ldf
+*.ndf
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# 本地私密配置 (如包含真实密码的环境配置)
+**/appsettings.local.json
+**/appsettings.Secrets.json
+**/appsettings.Development.json.user
+
+###############################################################################
+#              4. 前端 Vue 3 / Soybean Admin / pnpm (Frontend Monorepo)       #
+###############################################################################
+# 依赖包目录 (必须严格忽略)
+**/node_modules/
+.pnpm-store/
+
+# 打包构建产物
+**/dist/
+**/dist-ssr/
+dist-zip/
+
+# 各种包管理器日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 静态检查与构建缓存
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.oxlintcache
+.oxfmtcache
+
+# 本地环境变量文件
+.env.local
+.env.*.local
+
+###############################################################################
+#              5. Docker 容器与离线交付镜像包 (Docker & Offline Bundles)        #
+###############################################################################
+# 离线导出的 Docker 镜像大包 (几个G，严禁提交到Git)
+*.tar
+*.tar.gz
+*.tgz
+rcs-offline-bundle*.tar.gz
+rcs-bundle*.tar.gz
+
+# 容器数据卷挂载本地临时目录
+data/
+postgres_data/
+mssql_data/
+redis_data/
