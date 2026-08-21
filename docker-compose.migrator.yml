@@ -1,0 +1,16 @@
+services:
+  rcs-migrator:
+    build:
+      context: ./Siasun.RCS/BackEnd
+      dockerfile: Dockerfile.migrator
+    image: siasun/rcs-migrator:v3.0.0
+    container_name: rcs-migrator
+    environment:
+      - ConnectionStrings__Default=Server=rcs-db;Database=SIASUN.RCSCore;User Id=sa;Password=${DB_PASSWORD:-abc,1234};Encrypt=True;TrustServerCertificate=True;
+    networks:
+      - rcs-net
+
+networks:
+  rcs-net:
+    external: true
+    name: siasun-rcs_rcs-net

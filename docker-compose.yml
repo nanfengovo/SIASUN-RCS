@@ -1,0 +1,85 @@
+services:
+  # 1. 前端 SIASUNRCS Web UI
+  rcs-frontend:
+    build:
+      context: ./Siasun.RCS/FrontEnd/SIASUN.RCS.UI
+      dockerfile: Dockerfile
+    image: siasun/rcs-frontend:v3.0.0
+    container_name: rcs-frontend
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - rcs-backend
+    networks:
+      - rcs-net
+
+  # 2. 后端 .NET 10 ABP 纯 API 调度引擎
+  rcs-backend:
+    build:
+      context: ./Siasun.RCS/BackEnd
+      dockerfile: Dockerfile
+    image: siasun/rcs-backend:v3.0.0
+    container_name: rcs-backend
+    restart: always
+    ports:
+      - "${BACKEND_PORT:-9000}:9000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:9000
+      - App__SelfUrl=http://127.0.0.1:9000
+      - ConnectionStrings__Default=Server=host.docker.internal,1433;Database=SIASUN.RCSCore;User Id=sa;Password=${DB_PASSWORD:-abc,123};Encrypt=True;TrustServerCertificate=True;
+      - Redis__Configuration=rcs-redis:6379,password=${REDIS_PASSWORD:-abc,123}
+      - Logging__FileDirectory=/app/logs
+      - TZ=Asia/Shanghai
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - rcs-logs:/app/logs
+    depends_on:
+      - rcs-redis
+    networks:
+      - rcs-net
+
+  # 3. 生产数据库 SQL Server 2022 (完全对齐 EF Core SqlServer 配置)
+  rcs-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: rcs-db
+    restart: always
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${DB_PASSWORD:-abc,1234}
+      - TZ=Asia/Shanghai
+    volumes:
+      - rcs-db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${DB_PASSWORD:-abc,1234}' -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rcs-net
+
+  # 4. Redis 7.2 内存缓存与分布式锁
+  rcs-redis:
+    image: redis:7.2-alpine
+    container_name: rcs-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:-abc,123} --appendonly yes
+    volumes:
+      - rcs-redis-data:/data
+    networks:
+      - rcs-net
+
+networks:
+  rcs-net:
+    driver: bridge
+
+volumes:
+  rcs-logs:
+  rcs-db-data:
+  rcs-redis-data:

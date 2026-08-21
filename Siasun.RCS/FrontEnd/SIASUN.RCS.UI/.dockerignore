@@ -1,0 +1,8 @@
+**/.git
+**/.vscode
+**/.history
+**/node_modules
+**/.pnpm-store
+.eslintcache
+.oxlintcache
+.DS_Store

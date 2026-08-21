@@ -73,16 +73,27 @@ public class RCSHttpApiHostModule : AbpModule
 
         if (!hostingEnvironment.IsDevelopment())
         {
-            PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+            var pfxPath = Path.Combine(hostingEnvironment.ContentRootPath, "openiddict.pfx");
+            if (File.Exists(pfxPath))
             {
-                options.AddDevelopmentEncryptionAndSigningCertificate = false;
-            });
+                PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+                {
+                    options.AddDevelopmentEncryptionAndSigningCertificate = false;
+                });
 
-            PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
+                PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
+                {
+                    serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
+                    serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
+                });
+            }
+            else
             {
-                serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
-                serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
-            });
+                PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
+                {
+                    options.AddDevelopmentEncryptionAndSigningCertificate = true;
+                });
+            }
         }
     }
 

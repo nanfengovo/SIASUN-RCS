@@ -1,0 +1,43 @@
+# ========================================================
+# 阶段 1：.NET 10 SDK 编译构建环境
+# ========================================================
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# 1. 拷贝全局配置
+COPY ["common.props", "NuGet.Config", "./"]
+
+# 2. 预拷贝 DbMigrator 及其依赖项目的 csproj（恢复依赖层缓存优化）
+# 注意：你需要把 DbMigrator 依赖的其他项目（如 EntityFrameworkCore, Domain 等）的 csproj 也拷进来
+COPY ["src/SIASUN.RCS.Domain.Shared/SIASUN.RCS.Domain.Shared.csproj", "src/SIASUN.RCS.Domain.Shared/"]
+COPY ["src/SIASUN.RCS.Domain/SIASUN.RCS.Domain.csproj", "src/SIASUN.RCS.Domain/"]
+COPY ["src/SIASUN.RCS.Application.Contracts/SIASUN.RCS.Application.Contracts.csproj", "src/SIASUN.RCS.Application.Contracts/"]
+COPY ["src/SIASUN.RCS.EntityFrameworkCore/SIASUN.RCS.EntityFrameworkCore.csproj", "src/SIASUN.RCS.EntityFrameworkCore/"]
+COPY ["src/SIASUN.RCS.DbMigrator/SIASUN.RCS.DbMigrator.csproj", "src/SIASUN.RCS.DbMigrator/"]
+
+# 执行还原，生成缓存层
+RUN dotnet restore "src/SIASUN.RCS.DbMigrator/SIASUN.RCS.DbMigrator.csproj"
+
+# 3. 拷贝全部源码并编译发布
+COPY . .
+RUN dotnet publish "src/SIASUN.RCS.DbMigrator/SIASUN.RCS.DbMigrator.csproj" \
+    -c Release \
+    -o /app/publish \
+    /p:UseAppHost=false
+
+# ========================================================
+# 阶段 2：.NET 10 纯控制台运行时（比 aspnet 镜像更小）
+# ========================================================
+FROM mcr.microsoft.com/dotnet/runtime:10.0-alpine AS final
+WORKDIR /app
+
+ENV TZ=Asia/Shanghai \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
+# 修复 Alpine 时区和 .NET 全球化 (ICU) 依赖
+RUN apk add --no-cache tzdata icu-libs
+
+COPY --from=build /app/publish .
+
+# 执行迁移程序
+ENTRYPOINT ["dotnet", "SIASUN.RCS.DbMigrator.dll"]

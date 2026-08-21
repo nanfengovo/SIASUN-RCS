@@ -1,0 +1,66 @@
+name: CI Quality Gate
+
+on:
+  pull_request:
+    branches: [ main, master, develop ]
+  push:
+    branches: [ develop ]
+
+jobs:
+  backend-gate:
+    name: Backend Build & Test (.NET 10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Siasun.RCS/BackEnd/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Restore Backend Dependencies
+        working-directory: ./Siasun.RCS/BackEnd
+        run: dotnet restore
+
+      - name: Build Backend (Release)
+        working-directory: ./Siasun.RCS/BackEnd
+        run: dotnet build -c Release --no-restore
+
+      - name: Run Backend Unit Tests
+        working-directory: ./Siasun.RCS/BackEnd
+        run: dotnet test -c Release --no-build --verbosity normal
+
+  frontend-gate:
+    name: Frontend TypeCheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: Siasun.RCS/FrontEnd/SIASUN.RCS.UI/pnpm-lock.yaml
+
+      - name: Install Frontend Dependencies
+        working-directory: ./Siasun.RCS/FrontEnd/SIASUN.RCS.UI
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TypeScript Type Check & Build Test
+        working-directory: ./Siasun.RCS/FrontEnd/SIASUN.RCS.UI
+        run: |
+          pnpm typecheck
+          pnpm build
