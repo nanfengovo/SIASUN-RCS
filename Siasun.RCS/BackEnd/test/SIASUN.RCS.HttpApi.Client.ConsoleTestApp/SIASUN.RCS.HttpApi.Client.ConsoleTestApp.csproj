@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SIASUN.RCS.HttpApi.Client\SIASUN.RCS.HttpApi.Client.csproj" />
+    <ProjectReference Include="..\..\src\06.Hosting\SIASUN.RCS.HttpApi.Client\SIASUN.RCS.HttpApi.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

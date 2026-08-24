@@ -2,16 +2,22 @@
     <Configurations>
         <Platform Name="Any CPU" />
     </Configurations>
-    <Folder Name="/src/">
-        <Project Path="src/SIASUN.RCS.Domain/SIASUN.RCS.Domain.csproj" />
-        <Project Path="src/SIASUN.RCS.Application/SIASUN.RCS.Application.csproj" />
-        <Project Path="src/SIASUN.RCS.EntityFrameworkCore/SIASUN.RCS.EntityFrameworkCore.csproj" />
-        <Project Path="src/SIASUN.RCS.Domain.Shared/SIASUN.RCS.Domain.Shared.csproj" />
-        <Project Path="src/SIASUN.RCS.Application.Contracts/SIASUN.RCS.Application.Contracts.csproj" />
-        <Project Path="src/SIASUN.RCS.HttpApi/SIASUN.RCS.HttpApi.csproj" />
-        <Project Path="src/SIASUN.RCS.HttpApi.Client/SIASUN.RCS.HttpApi.Client.csproj" />
-        <Project Path="src/SIASUN.RCS.HttpApi.Host/SIASUN.RCS.HttpApi.Host.csproj" />
-        <Project Path="src/SIASUN.RCS.DbMigrator/SIASUN.RCS.DbMigrator.csproj" />
+    <Folder Name="/src/02.Domain/">
+        <Project Path="src/02.Domain/SIASUN.RCS.Domain.Shared/SIASUN.RCS.Domain.Shared.csproj" />
+        <Project Path="src/02.Domain/SIASUN.RCS.Domain/SIASUN.RCS.Domain.csproj" />
+    </Folder>
+    <Folder Name="/src/03.Application/">
+        <Project Path="src/03.Application/SIASUN.RCS.Application.Contracts/SIASUN.RCS.Application.Contracts.csproj" />
+        <Project Path="src/03.Application/SIASUN.RCS.Application/SIASUN.RCS.Application.csproj" />
+    </Folder>
+    <Folder Name="/src/05.Infrastructure/">
+        <Project Path="src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/SIASUN.RCS.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/src/06.Hosting/">
+        <Project Path="src/06.Hosting/SIASUN.RCS.HttpApi/SIASUN.RCS.HttpApi.csproj" />
+        <Project Path="src/06.Hosting/SIASUN.RCS.HttpApi.Client/SIASUN.RCS.HttpApi.Client.csproj" />
+        <Project Path="src/06.Hosting/SIASUN.RCS.HttpApi.Host/SIASUN.RCS.HttpApi.Host.csproj" />
+        <Project Path="src/06.Hosting/SIASUN.RCS.DbMigrator/SIASUN.RCS.DbMigrator.csproj" />
     </Folder>
     <Folder Name="/test/">
         <Project Path="test/SIASUN.RCS.Application.Tests/SIASUN.RCS.Application.Tests.csproj" />
