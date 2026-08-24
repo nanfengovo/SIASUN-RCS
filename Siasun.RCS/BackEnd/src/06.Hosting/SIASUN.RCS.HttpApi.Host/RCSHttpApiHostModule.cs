@@ -248,9 +248,42 @@ public class RCSHttpApiHostModule : AbpModule
             null,
             options =>
             {
-                options.SwaggerDoc("v1", new OpenApiInfo { Title = "RCS API", Version = "v1" });
-                options.DocInclusionPredicate((docName, description) => true);
+                //定义多个分组；新增分组复制一行就可以
+                options.SwaggerDoc("System", new OpenApiInfo { Title = "ABP 系统底层基础接口", Version = "v1" });
+                options.SwaggerDoc("business", new OpenApiInfo { Title = "RCS 核心业务接口", Version = "v1" });
+                options.SwaggerDoc("adapters", new  OpenApiInfo { Title = "RCS 适配器接口", Version = "v1"});
+
+                //根据路由或者命名空间分流
+                options.DocInclusionPredicate((docName, description) =>
+                {
+                    var path = description.RelativePath ?? string.Empty;
+
+                    if(docName == "system")
+                    {
+                        return path.StartsWith("api/abp/",StringComparison.OrdinalIgnoreCase);
+                    }
+                    if(docName == "business")
+                    {
+                        return path.StartsWith("api/rcs/",StringComparison.OrdinalIgnoreCase);
+                    }
+                    if(docName == "adapters")
+                    {
+                        return path.StartsWith("api/adapters/",StringComparison.OrdinalIgnoreCase);
+                    }
+                    return true;
+                });
                 options.CustomSchemaIds(type => type.FullName);
+                //xml 注释
+                var httpApiXml = Path.Combine(AppContext.BaseDirectory,"SIASUN.RCS.HttpApi.xml");
+                if (File.Exists(httpApiXml))
+                {
+                    options.IncludeXmlComments(httpApiXml,true);
+                }
+                var applicationXml = Path.Combine(AppContext.BaseDirectory,"SIASUN.RCS.Application.xml");
+                if (File.Exists(applicationXml))
+                {
+                    options.IncludeXmlComments(applicationXml,true);
+                }
             });
     }
 
@@ -321,10 +354,15 @@ public class RCSHttpApiHostModule : AbpModule
         app.UseSwagger();
         app.UseAbpSwaggerUI(options =>
         {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "RCS API");
+            options.SwaggerEndpoint("/swagger/business/swagger.json", "RCS 核心业务接口");
+            options.SwaggerEndpoint("/swagger/adapters/swagger.json", "RCS 硬件和三方系统适配器接口");
+            options.SwaggerEndpoint("/swagger/System/swagger.json", "ABP 系统底层基础接口");
 
             var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
             options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
+
+            options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+            options.EnableFilter();
         });
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
