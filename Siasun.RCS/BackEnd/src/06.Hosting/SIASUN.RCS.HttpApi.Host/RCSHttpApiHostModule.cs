@@ -1,9 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -19,22 +16,20 @@ using SIASUN.RCS.HealthChecks;
 using Microsoft.OpenApi;
 using Volo.Abp;
 using Volo.Abp.Studio;
-using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Autofac;
-using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
 using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
 using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
+using Volo.Abp.AspNetCore.Mvc.Libs;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Bundling;
 using Microsoft.AspNetCore.Hosting;
 using Volo.Abp.AspNetCore.Serilog;
-using Volo.Abp.Identity;
 using Volo.Abp.OpenIddict;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.Studio.Client.AspNetCore;
@@ -138,6 +133,11 @@ public class RCSHttpApiHostModule : AbpModule
         ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
+
+        Configure<AbpMvcLibsOptions>(options =>
+        {
+            options.CheckLibs = false;
+        });
     }
 
     private void ConfigureStudio(IHostEnvironment hostingEnvironment)
@@ -204,11 +204,30 @@ public class RCSHttpApiHostModule : AbpModule
         {
             Configure<AbpVirtualFileSystemOptions>(options =>
             {
-                options.FileSets.ReplaceEmbeddedByPhysical<RCSDomainSharedModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}SIASUN.RCS.Domain.Shared"));
-                options.FileSets.ReplaceEmbeddedByPhysical<RCSDomainModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}SIASUN.RCS.Domain"));
-                options.FileSets.ReplaceEmbeddedByPhysical<RCSApplicationContractsModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}SIASUN.RCS.Application.Contracts"));
-                options.FileSets.ReplaceEmbeddedByPhysical<RCSApplicationModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}SIASUN.RCS.Application"));
+                TryReplaceEmbeddedByPhysical<RCSDomainSharedModule>(options, hostingEnvironment, "02.Domain", "SIASUN.RCS.Domain.Shared");
+                TryReplaceEmbeddedByPhysical<RCSDomainModule>(options, hostingEnvironment, "02.Domain", "SIASUN.RCS.Domain");
+                TryReplaceEmbeddedByPhysical<RCSApplicationContractsModule>(options, hostingEnvironment, "03.Application", "SIASUN.RCS.Application.Contracts");
+                TryReplaceEmbeddedByPhysical<RCSApplicationModule>(options, hostingEnvironment, "03.Application", "SIASUN.RCS.Application");
             });
+        }
+    }
+
+    private static void TryReplaceEmbeddedByPhysical<TModule>(
+        AbpVirtualFileSystemOptions options,
+        IHostEnvironment hostingEnvironment,
+        string layerFolder,
+        string projectName)
+    {
+        var targetPath = Path.GetFullPath(Path.Combine(
+            hostingEnvironment.ContentRootPath,
+            "..",
+            "..",
+            layerFolder,
+            projectName));
+
+        if (Directory.Exists(targetPath))
+        {
+            options.FileSets.ReplaceEmbeddedByPhysical<TModule>(targetPath);
         }
     }
 
