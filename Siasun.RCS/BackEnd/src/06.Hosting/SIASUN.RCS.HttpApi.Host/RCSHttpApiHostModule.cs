@@ -252,6 +252,7 @@ public class RCSHttpApiHostModule : AbpModule
                 options.SwaggerDoc("System", new OpenApiInfo { Title = "ABP 系统底层基础接口", Version = "v1" });
                 options.SwaggerDoc("business", new OpenApiInfo { Title = "RCS 核心业务接口", Version = "v1" });
                 options.SwaggerDoc("adapters", new  OpenApiInfo { Title = "RCS 适配器接口", Version = "v1"});
+                options.SwaggerDoc("monitor", new  OpenApiInfo { Title = "RCS 监控和仪表盘", Version = "v1"});
 
                 //根据路由或者命名空间分流
                 options.DocInclusionPredicate((docName, description) =>
@@ -269,6 +270,10 @@ public class RCSHttpApiHostModule : AbpModule
                     if(docName == "adapters")
                     {
                         return path.StartsWith("api/adapters/",StringComparison.OrdinalIgnoreCase);
+                    }
+                    if(docName == "monitor")
+                    {
+                        return path.StartsWith("api/monitor/",StringComparison.OrdinalIgnoreCase);
                     }
                     return true;
                 });
@@ -356,7 +361,8 @@ public class RCSHttpApiHostModule : AbpModule
         {
             options.SwaggerEndpoint("/swagger/business/swagger.json", "RCS 核心业务接口");
             options.SwaggerEndpoint("/swagger/adapters/swagger.json", "RCS 硬件和三方系统适配器接口");
-            options.SwaggerEndpoint("/swagger/System/swagger.json", "ABP 系统底层基础接口");
+            options.SwaggerEndpoint("/swagger/system/swagger.json", "ABP 系统底层基础接口");
+            options.SwaggerEndpoint("/swagger/monitor/swagger.json", "RCS 监控和仪表盘");
 
             var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
             options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
