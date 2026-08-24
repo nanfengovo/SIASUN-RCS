@@ -1,4 +1,4 @@
-﻿namespace SIASUN.RCS;
+namespace SIASUN.RCS;
 
 public static class RCSDomainErrorCodes
 {

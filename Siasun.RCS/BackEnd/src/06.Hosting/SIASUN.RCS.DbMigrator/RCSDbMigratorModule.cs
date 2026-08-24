@@ -1,4 +1,4 @@
-﻿using SIASUN.RCS.EntityFrameworkCore;
+using SIASUN.RCS.EntityFrameworkCore;
 using Volo.Abp.Autofac;
 using Volo.Abp.Modularity;
 

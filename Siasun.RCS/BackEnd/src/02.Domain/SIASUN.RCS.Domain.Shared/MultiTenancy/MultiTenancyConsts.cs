@@ -1,4 +1,4 @@
-﻿namespace SIASUN.RCS.MultiTenancy;
+namespace SIASUN.RCS.MultiTenancy;
 
 public static class MultiTenancyConsts
 {

@@ -1,4 +1,4 @@
-﻿using SIASUN.RCS.Localization;
+using SIASUN.RCS.Localization;
 using Volo.Abp.AspNetCore.Mvc;
 
 namespace SIASUN.RCS.Controllers;

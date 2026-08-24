@@ -1,4 +1,4 @@
-﻿namespace SIASUN.RCS.Settings;
+namespace SIASUN.RCS.Settings;
 
 public static class RCSSettings
 {

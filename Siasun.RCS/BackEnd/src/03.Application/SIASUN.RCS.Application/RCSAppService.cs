@@ -1,4 +1,4 @@
-﻿using SIASUN.RCS.Localization;
+using SIASUN.RCS.Localization;
 using Volo.Abp.Application.Services;
 
 namespace SIASUN.RCS;

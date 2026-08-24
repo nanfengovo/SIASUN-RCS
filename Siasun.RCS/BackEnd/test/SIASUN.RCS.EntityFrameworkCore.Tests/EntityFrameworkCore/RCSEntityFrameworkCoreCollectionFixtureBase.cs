@@ -1,4 +1,4 @@
-﻿using SIASUN.RCS.EntityFrameworkCore;
+using SIASUN.RCS.EntityFrameworkCore;
 using Xunit;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
