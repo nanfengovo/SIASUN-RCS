@@ -88,7 +88,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
                     Peer = ResolvePeer(path),
                     HttpMethod = methodEnum,
                     Path = path,
-                    StatusCode = 500,//避免在异常的时候还是200 这样更规范
+                    StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
                     ElapsedMs = sw.ElapsedMilliseconds,
                     RequestBody = TruncateBody(requestBody),
                     ResponseBody = TruncateBody(responseBody),

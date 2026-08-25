@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- 引入 ASP.NET Core Web 框架（支持 DefaultHttpContext） -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\05.Infrastructure\SIASUN.RCS.Infrastructure.Logging\SIASUN.RCS.Infrastructure.Logging.csproj" />
+    <ProjectReference Include="..\..\src\05.Infrastructure\SIASUN.RCS.Infrastructure.AuditLog.Sqlite\SIASUN.RCS.Infrastructure.AuditLog.Sqlite.csproj" />
+    <ProjectReference Include="..\SIASUN.RCS.TestBase\SIASUN.RCS.TestBase.csproj" />
+  </ItemGroup>
+
+</Project>
