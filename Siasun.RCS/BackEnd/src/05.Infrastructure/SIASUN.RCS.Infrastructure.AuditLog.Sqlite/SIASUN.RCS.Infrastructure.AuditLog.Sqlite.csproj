@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SIASUN.RCS.Infrastructure.AuditLog.Sqlite</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\02.Domain\SIASUN.RCS.Domain\SIASUN.RCS.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ABP 官方 SQLite EF Core 模块 -->
+    <PackageReference Include="Volo.Abp.EntityFrameworkCore.Sqlite" Version="10.5.0" />
+  </ItemGroup>
+
+</Project>

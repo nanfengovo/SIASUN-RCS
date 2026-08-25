@@ -86,7 +86,11 @@ coverage/
 *.db
 *.db-shm
 *.db-wal
-*.sqlite
+# 忽略 SQLite 数据文件，但放行源码工程目录
+*.sqlite3
+*.sqlite-journal
+!*Sqlite/
+!*.csproj
 *.sqlite3
 *.sqlite-journal
 

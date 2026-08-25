@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
@@ -34,6 +33,9 @@ using Volo.Abp.OpenIddict;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Security.Claims;
+using SIASUN.RCS.Infrastructure.Logging;
+using SIASUN.RCS.Infrastructure.AuditLog.Sqlite;
+using System;
 
 namespace SIASUN.RCS;
 
@@ -47,7 +49,9 @@ namespace SIASUN.RCS;
     typeof(RCSEntityFrameworkCoreModule),
     typeof(AbpAccountWebOpenIddictModule),
     typeof(AbpSwashbuckleModule),
-    typeof(AbpAspNetCoreSerilogModule)
+    typeof(AbpAspNetCoreSerilogModule),
+    typeof(RCSInfrastructureLoggingModule),
+    typeof(RCSInfrastructureAuditLogSqliteModule)
     )]
 public class RCSHttpApiHostModule : AbpModule
 {
@@ -109,7 +113,7 @@ public class RCSHttpApiHostModule : AbpModule
             {
                 options.DisableTransportSecurityRequirement = true;
             });
-            
+
             Configure<ForwardedHeadersOptions>(options =>
             {
                 options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
@@ -251,43 +255,43 @@ public class RCSHttpApiHostModule : AbpModule
                 //定义多个分组；新增分组复制一行就可以
                 options.SwaggerDoc("System", new OpenApiInfo { Title = "ABP 系统底层基础接口", Version = "v1" });
                 options.SwaggerDoc("business", new OpenApiInfo { Title = "RCS 核心业务接口", Version = "v1" });
-                options.SwaggerDoc("adapters", new  OpenApiInfo { Title = "RCS 适配器接口", Version = "v1"});
-                options.SwaggerDoc("monitor", new  OpenApiInfo { Title = "RCS 监控和仪表盘", Version = "v1"});
+                options.SwaggerDoc("adapters", new OpenApiInfo { Title = "RCS 适配器接口", Version = "v1" });
+                options.SwaggerDoc("monitor", new OpenApiInfo { Title = "RCS 监控和仪表盘", Version = "v1" });
 
                 //根据路由或者命名空间分流
                 options.DocInclusionPredicate((docName, description) =>
                 {
                     var path = description.RelativePath ?? string.Empty;
 
-                    if(docName == "system")
+                    if (docName == "system")
                     {
-                        return path.StartsWith("api/abp/",StringComparison.OrdinalIgnoreCase);
+                        return path.StartsWith("api/abp/", StringComparison.OrdinalIgnoreCase);
                     }
-                    if(docName == "business")
+                    if (docName == "business")
                     {
-                        return path.StartsWith("api/rcs/",StringComparison.OrdinalIgnoreCase);
+                        return path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase);
                     }
-                    if(docName == "adapters")
+                    if (docName == "adapters")
                     {
-                        return path.StartsWith("api/adapters/",StringComparison.OrdinalIgnoreCase);
+                        return path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
                     }
-                    if(docName == "monitor")
+                    if (docName == "monitor")
                     {
-                        return path.StartsWith("api/monitor/",StringComparison.OrdinalIgnoreCase);
+                        return path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase);
                     }
                     return true;
                 });
                 options.CustomSchemaIds(type => type.FullName);
                 //xml 注释
-                var httpApiXml = Path.Combine(AppContext.BaseDirectory,"SIASUN.RCS.HttpApi.xml");
+                var httpApiXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.HttpApi.xml");
                 if (File.Exists(httpApiXml))
                 {
-                    options.IncludeXmlComments(httpApiXml,true);
+                    options.IncludeXmlComments(httpApiXml, true);
                 }
-                var applicationXml = Path.Combine(AppContext.BaseDirectory,"SIASUN.RCS.Application.xml");
+                var applicationXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.Application.xml");
                 if (File.Exists(applicationXml))
                 {
-                    options.IncludeXmlComments(applicationXml,true);
+                    options.IncludeXmlComments(applicationXml, true);
                 }
             });
     }
@@ -370,6 +374,8 @@ public class RCSHttpApiHostModule : AbpModule
             options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
             options.EnableFilter();
         });
+        // 报文日志拦截中间件
+        app.UseMiddleware<InboundAuditMiddleware>();
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
