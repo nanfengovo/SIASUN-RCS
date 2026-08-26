@@ -11,6 +11,7 @@ using Volo.Abp.EntityFrameworkCore;
 
 namespace SIASUN.RCS.Migrations
 {
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     [DbContext(typeof(RCSDbContext))]
     partial class RCSDbContextModelSnapshot : ModelSnapshot
     {
