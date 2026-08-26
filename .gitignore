@@ -71,13 +71,15 @@ artifacts/
 *.clef
 *.txt.bak
 
-# 测试覆盖率与结果
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
+# 测试覆盖率与结果产物 (全路径递归忽略)
+**/[Tt]est[Rr]esult*/
+**/[Tt]est[Rr]esults/
+**/coveragereport/
+**/coverage/
 *.trx
-coverage/
 *.coverage
 *.coveragexml
+**/coverage.cobertura.xml
 
 # 本地数据库与临时数据文件
 *.mdf
