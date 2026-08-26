@@ -29,7 +29,7 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
 
             context.Services.AddDbContext<AuditLogSqliteDbContext>(options =>
             {
-                options.UseSqlite($"Data Source = {dbPath};Cache=Shared;");
+                options.UseSqlite($"Data Source={dbPath};Cache=Shared;");
             });
 
             // 注册存储接口实现

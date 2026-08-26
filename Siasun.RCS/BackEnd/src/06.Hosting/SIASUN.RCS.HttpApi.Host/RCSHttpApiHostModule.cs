@@ -253,33 +253,27 @@ public class RCSHttpApiHostModule : AbpModule
             options =>
             {
                 //定义多个分组；新增分组复制一行就可以
-                options.SwaggerDoc("System", new OpenApiInfo { Title = "ABP 系统底层基础接口", Version = "v1" });
+                options.SwaggerDoc("system", new OpenApiInfo { Title = "ABP 系统底层基础接口", Version = "v1" });
                 options.SwaggerDoc("business", new OpenApiInfo { Title = "RCS 核心业务接口", Version = "v1" });
                 options.SwaggerDoc("adapters", new OpenApiInfo { Title = "RCS 适配器接口", Version = "v1" });
                 options.SwaggerDoc("monitor", new OpenApiInfo { Title = "RCS 监控和仪表盘", Version = "v1" });
-
-                //根据路由或者命名空间分流
+                // 根据路由精准分流（自定义业务精准匹配，system 作为其余 ABP 底层接口的闭环兜底）
                 options.DocInclusionPredicate((docName, description) =>
                 {
                     var path = description.RelativePath ?? string.Empty;
 
-                    if (docName == "system")
+                    var isBusiness = path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase);
+                    var isAdapters = path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
+                    var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase);
+
+                    return docName switch
                     {
-                        return path.StartsWith("api/abp/", StringComparison.OrdinalIgnoreCase);
-                    }
-                    if (docName == "business")
-                    {
-                        return path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase);
-                    }
-                    if (docName == "adapters")
-                    {
-                        return path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
-                    }
-                    if (docName == "monitor")
-                    {
-                        return path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase);
-                    }
-                    return true;
+                        "business" => isBusiness,
+                        "adapters" => isAdapters,
+                        "monitor" => isMonitor,
+                        "system" => !isBusiness && !isAdapters && !isMonitor,
+                        _ => true
+                    };
                 });
                 options.CustomSchemaIds(type => type.FullName);
                 //xml 注释

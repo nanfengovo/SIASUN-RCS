@@ -1,10 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using SIASUN.RCS.Auditing;
-using Volo.Abp.EntityFrameworkCore;
 
 namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
 {
-    public class AuditLogSqliteDbContext : AbpDbContext<AuditLogSqliteDbContext>
+    public class AuditLogSqliteDbContext : DbContext
     {
         public DbSet<ApiAuditLogEntry> ApiAuditLogs { get; set; } = null!;
 
