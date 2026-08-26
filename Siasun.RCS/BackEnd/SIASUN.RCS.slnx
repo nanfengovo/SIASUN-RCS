@@ -27,7 +27,6 @@
     <Project Path="test/SIASUN.RCS.EntityFrameworkCore.Tests/SIASUN.RCS.EntityFrameworkCore.Tests.csproj" />
     <Project Path="test/SIASUN.RCS.TestBase/SIASUN.RCS.TestBase.csproj" />
     <Project Path="test/SIASUN.RCS.Domain.Tests/SIASUN.RCS.Domain.Tests.csproj" />
-    <Project Path="test/SIASUN.RCS.Infrastructure.Tests/SIASUN.RCS.Infrastructure.Tests.csproj" />
     <Project Path="test/SIASUN.RCS.HttpApi.Client.ConsoleTestApp/SIASUN.RCS.HttpApi.Client.ConsoleTestApp.csproj" />
   </Folder>
 </Solution>

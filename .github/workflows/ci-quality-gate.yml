@@ -30,17 +30,14 @@ jobs:
       - name: Restore Backend Dependencies
         working-directory: ./Siasun.RCS/BackEnd
         run: dotnet restore
-        run: dotnet restore SIASUN.RCS.sln
 
       - name: Build Backend (Release)
         working-directory: ./Siasun.RCS/BackEnd
         run: dotnet build -c Release --no-restore
-        run: dotnet build SIASUN.RCS.sln -c Release --no-restore
 
       - name: Run Backend Unit Tests
         working-directory: ./Siasun.RCS/BackEnd
         run: dotnet test -c Release --no-build --verbosity normal
-        run: dotnet test SIASUN.RCS.sln -c Release --no-build --verbosity normal
 
   frontend-gate:
     name: Frontend TypeCheck & Build
