@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IO;
 using SIASUN.RCS.Auditing;
+using SIASUN.RCS.Infrastructure.Logging.Filtering;
 
 namespace SIASUN.RCS.Infrastructure.Logging
 {
@@ -17,19 +18,26 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
         private readonly ApiAuditLogChannel _channel;
 
-        public InboundAuditMiddleware(RequestDelegate next, RecyclableMemoryStreamManager streamManager, ApiAuditLogChannel channel)
+        private readonly IAuditLogFilterEvaluator _filterEvaluator;
+
+        public InboundAuditMiddleware(
+            RequestDelegate next,
+            RecyclableMemoryStreamManager streamManager,
+            ApiAuditLogChannel channel,
+            IAuditLogFilterEvaluator filterEvaluator)
         {
             _next = next;
             _streamManager = streamManager;
             _channel = channel;
+            _filterEvaluator = filterEvaluator;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var path = context.Request.Path.Value ?? string.Empty;
 
-            // 1.过滤高频探测与静态资源
-            if (path.StartsWith("/health") || path.StartsWith("/hubs/") || path.EndsWith(".js") || path.EndsWith(".css") || path.EndsWith(".ico"))
+            // 1. 基于内存高速规则引擎判定是否需要记录审计日志（白名单驱动 + 黑名单防御）
+            if (!_filterEvaluator.ShouldAudit(path, context.Request.Method, Direction.Inbound))
             {
                 await _next(context);
                 return;

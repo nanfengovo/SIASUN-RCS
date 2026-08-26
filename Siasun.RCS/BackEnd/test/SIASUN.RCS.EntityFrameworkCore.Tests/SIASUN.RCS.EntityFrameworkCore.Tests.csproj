@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\05.Infrastructure\SIASUN.RCS.EntityFrameworkCore\SIASUN.RCS.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\src\03.Application\SIASUN.RCS.Application.Contracts\SIASUN.RCS.Application.Contracts.csproj" />
     <ProjectReference Include="..\SIASUN.RCS.Application.Tests\SIASUN.RCS.Application.Tests.csproj" />
   </ItemGroup>
 

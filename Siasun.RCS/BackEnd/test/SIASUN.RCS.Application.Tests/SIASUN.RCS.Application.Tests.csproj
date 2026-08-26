@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\03.Application\SIASUN.RCS.Application\SIASUN.RCS.Application.csproj" />
+    <ProjectReference Include="..\..\src\03.Application\SIASUN.RCS.Application.Contracts\SIASUN.RCS.Application.Contracts.csproj" />
     <ProjectReference Include="..\SIASUN.RCS.Domain.Tests\SIASUN.RCS.Domain.Tests.csproj" />
   </ItemGroup>
 

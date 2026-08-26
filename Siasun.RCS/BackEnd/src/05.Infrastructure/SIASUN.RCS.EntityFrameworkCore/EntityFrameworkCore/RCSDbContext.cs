@@ -14,6 +14,7 @@ using Volo.Abp.SettingManagement.EntityFrameworkCore;
 using Volo.Abp.OpenIddict.EntityFrameworkCore;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
+using SIASUN.RCS.Auditing;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
@@ -25,21 +26,9 @@ public class RCSDbContext :
     ITenantManagementDbContext,
     IIdentityDbContext
 {
-    /* Add DbSet properties for your Aggregate Roots / Entities here. */
-
+    public DbSet<AuditLogFilterRule> AuditLogFilterRules { get; set; } = null!;
 
     #region Entities from the modules
-
-    /* Notice: We only implemented IIdentityProDbContext and ISaasDbContext
-     * and replaced them for this DbContext. This allows you to perform JOIN
-     * queries for the entities of these modules over the repositories easily. You
-     * typically don't need that for other modules. But, if you need, you can
-     * implement the DbContext interface of the needed module and use ReplaceDbContext
-     * attribute just like IIdentityProDbContext and ISaasDbContext.
-     *
-     * More info: Replacing a DbContext of a module ensures that the related module
-     * uses this DbContext on runtime. Otherwise, it will use its own DbContext class.
-     */
 
     // Identity
     public DbSet<IdentityUser> Users { get; set; }
@@ -81,11 +70,15 @@ public class RCSDbContext :
 
         /* Configure your own tables/entities inside here */
 
-        //builder.Entity<YourEntity>(b =>
-        //{
-        //    b.ToTable(RCSConsts.DbTablePrefix + "YourEntities", RCSConsts.DbSchema);
-        //    b.ConfigureByConvention(); //auto configure for the base class props
-        //    //...
-        //});
+        builder.Entity<AuditLogFilterRule>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "AuditLogFilterRules", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(AuditLogFilterRuleConsts.MaxNameLength);
+            b.Property(x => x.PathPattern).IsRequired().HasMaxLength(AuditLogFilterRuleConsts.MaxPathPatternLength);
+            b.Property(x => x.HttpMethod).HasMaxLength(AuditLogFilterRuleConsts.MaxHttpMethodLength);
+            b.Property(x => x.Description).HasMaxLength(AuditLogFilterRuleConsts.MaxDescriptionLength);
+            b.HasIndex(x => new { x.RuleType, x.IsEnabled, x.Direction });
+        });
     }
 }

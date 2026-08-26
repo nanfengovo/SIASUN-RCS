@@ -368,6 +368,11 @@ public class RCSHttpApiHostModule : AbpModule
             options.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
             options.EnableFilter();
         });
+
+        // 初始化 API 审计日志过滤规则引擎（预加载规则至内存快照）
+        var filterEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Infrastructure.Logging.Filtering.IAuditLogFilterEvaluator>();
+        filterEvaluator.InitializeAsync().GetAwaiter().GetResult();
+
         // 报文日志拦截中间件
         app.UseMiddleware<InboundAuditMiddleware>();
         app.UseAuditing();

@@ -18,8 +18,9 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
         {
             var configuration = context.Services.GetConfiguration();
 
-            // 配置SQLite数据库连接字符串 默认地址 logs/api_audit_log.db
-            var dbPath = configuration["AuditLog:SqlitePath"] ?? "logs/api_audit_log.db";
+            // 配置 SQLite 数据库连接字符串，默认地址 Logs/api_audit_log.db（与 Serilog 文本日志在同一 Logs 目录下）
+            var rawPath = configuration["AuditLog:SqlitePath"];
+            var dbPath = string.IsNullOrWhiteSpace(rawPath) ? "Logs/api_audit_log.db" : rawPath;
 
             var dir = Path.GetDirectoryName(dbPath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
