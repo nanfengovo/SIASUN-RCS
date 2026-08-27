@@ -1,0 +1,4 @@
+{
+  "dotnet.unitTests.runSettingsPath": "Siasun.RCS/BackEnd/coverlet.runsettings",
+  "csharp.unitTests.runSettingsPath": "Siasun.RCS/BackEnd/coverlet.runsettings"
+}

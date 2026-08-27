@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SIASUN.RCS.Migrations
 {
     /// <inheritdoc />
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public partial class Initial : Migration
     {
         /// <inheritdoc />

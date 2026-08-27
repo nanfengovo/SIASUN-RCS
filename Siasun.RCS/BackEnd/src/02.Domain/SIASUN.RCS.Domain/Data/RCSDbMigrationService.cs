@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,6 +17,7 @@ using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS.Data;
 
+[ExcludeFromCodeCoverage]
 public class RCSDbMigrationService : ITransientDependency
 {
     public ILogger<RCSDbMigrationService> Logger { get; set; }

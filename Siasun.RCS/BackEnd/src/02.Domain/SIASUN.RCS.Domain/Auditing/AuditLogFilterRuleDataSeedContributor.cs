@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +9,8 @@ using Volo.Abp.Guids;
 
 namespace SIASUN.RCS.Auditing
 {
-    public class AuditLogFilterRuleDataSeedContributor : IDataSeedContributor, ITransientDependency
+    [ExcludeFromCodeCoverage]
+public class AuditLogFilterRuleDataSeedContributor : IDataSeedContributor, ITransientDependency
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IGuidGenerator _guidGenerator;

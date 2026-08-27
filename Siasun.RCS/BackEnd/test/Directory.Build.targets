@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <!-- Automatically exclude all test assemblies from Microsoft Code Coverage UI tree -->
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+  </ItemGroup>
+</Project>

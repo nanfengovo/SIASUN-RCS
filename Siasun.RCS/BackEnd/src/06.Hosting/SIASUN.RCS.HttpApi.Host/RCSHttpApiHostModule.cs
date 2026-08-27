@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
@@ -53,6 +54,7 @@ namespace SIASUN.RCS;
     typeof(RCSInfrastructureLoggingModule),
     typeof(RCSInfrastructureAuditLogSqliteModule)
     )]
+[ExcludeFromCodeCoverage]
 public class RCSHttpApiHostModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)

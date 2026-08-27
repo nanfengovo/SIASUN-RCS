@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SIASUN.RCS.Localization;
@@ -36,6 +37,7 @@ namespace SIASUN.RCS;
     typeof(AbpTenantManagementDomainModule),
     typeof(BlobStoringDatabaseDomainModule)
     )]
+[ExcludeFromCodeCoverage]
 public class RCSDomainModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)

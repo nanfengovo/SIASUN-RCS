@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 
 using System.IO;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,8 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
     typeof(RCSDomainModule),
     typeof(AbpEntityFrameworkCoreSqliteModule)
     )]
-    public class RCSInfrastructureAuditLogSqliteModule : AbpModule
+    [ExcludeFromCodeCoverage]
+public class RCSInfrastructureAuditLogSqliteModule : AbpModule
     {
         public override void ConfigureServices(ServiceConfigurationContext context)
         {

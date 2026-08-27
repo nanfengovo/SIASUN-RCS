@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage" uri="datacollector://Microsoft/CodeCoverage/2.0" assemblyQualifiedName="Microsoft.VisualStudio.Coverage.DynamicCoverageDataCollector, Microsoft.VisualStudio.TraceCollector, Version=11.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+        <Configuration>
+          <Format>cobertura</Format>
+          <CodeCoverage>
+            <ModulePaths>
+              <Exclude>
+                <ModulePath>.*Tests.*</ModulePath>
+                <ModulePath>.*TestBase.*</ModulePath>
+                <ModulePath>.*DbMigrator.*</ModulePath>
+                <ModulePath>.*HttpApi\.Host.*</ModulePath>
+              </Exclude>
+            </ModulePaths>
+            <Functions>
+              <Exclude>
+                <Function>.*Migrations\..*</Function>
+              </Exclude>
+            </Functions>
+            <Sources>
+              <Exclude>
+                <Source>.*Migrations.*</Source>
+                <Source>.*ModelSnapshot\.cs</Source>
+                <Source>.*Designer\.cs</Source>
+                <Source>.*DataSeedContributor\.cs</Source>
+                <Source>.*DbContextFactory\.cs</Source>
+                <Source>.*DbSchemaMigrator\.cs</Source>
+                <Source>.*Module\.cs</Source>
+                <Source>.*NullRCSDbSchemaMigrator\.cs</Source>
+                <Source>.*RCSDbMigrationService\.cs</Source>
+              </Exclude>
+            </Sources>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

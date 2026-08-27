@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Volo.Abp.Account;
 using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
@@ -17,6 +18,7 @@ namespace SIASUN.RCS;
     typeof(AbpTenantManagementApplicationContractsModule),
     typeof(AbpPermissionManagementApplicationContractsModule)
 )]
+[ExcludeFromCodeCoverage]
 public class RCSApplicationContractsModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)

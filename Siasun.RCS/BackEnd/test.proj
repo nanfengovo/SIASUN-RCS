@@ -1,0 +1,8 @@
+<Project>
+  <ItemGroup>
+    <MigrationFiles Include="src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Migrations/*.cs" Exclude="src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Migrations/*Designer.cs;src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Migrations/*ModelSnapshot.cs" />
+  </ItemGroup>
+  <Target Name="TestBatching">
+    <Message Text="Line: [ExcludeFromCodeCoverage] public partial class $([System.Text.RegularExpressions.Regex]::Replace('%(MigrationFiles.Filename)', '^[0-9]+_', '')) { }" Importance="high" Condition="'@(MigrationFiles)' != ''" />
+  </Target>
+</Project>

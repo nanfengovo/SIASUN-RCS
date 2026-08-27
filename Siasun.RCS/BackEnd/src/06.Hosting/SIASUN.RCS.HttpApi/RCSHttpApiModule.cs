@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Localization.Resources.AbpUi;
 using SIASUN.RCS.Localization;
 using Volo.Abp.Account;
@@ -20,6 +21,7 @@ namespace SIASUN.RCS;
     typeof(AbpTenantManagementHttpApiModule),
     typeof(AbpFeatureManagementHttpApiModule)
     )]
+[ExcludeFromCodeCoverage]
 public class RCSHttpApiModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IO;
 using Volo.Abp.Modularity;
@@ -7,7 +8,8 @@ namespace SIASUN.RCS.Infrastructure.Logging
     [DependsOn(
         typeof(RCSDomainModule)
     )]
-    public class RCSInfrastructureLoggingModule : AbpModule
+    [ExcludeFromCodeCoverage]
+public class RCSInfrastructureLoggingModule : AbpModule
     {
         public override void ConfigureServices(ServiceConfigurationContext context)
         {

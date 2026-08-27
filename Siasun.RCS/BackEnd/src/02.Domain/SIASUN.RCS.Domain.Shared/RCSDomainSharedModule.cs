@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SIASUN.RCS.Localization;
 using Volo.Abp.AuditLogging;
 using Volo.Abp.BackgroundJobs;
@@ -27,6 +28,7 @@ namespace SIASUN.RCS;
     typeof(AbpTenantManagementDomainSharedModule),
     typeof(BlobStoringDatabaseDomainSharedModule)
     )]
+[ExcludeFromCodeCoverage]
 public class RCSDomainSharedModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 using Volo.Abp.Account;
 using Volo.Abp.Modularity;
@@ -19,6 +20,7 @@ namespace SIASUN.RCS;
     typeof(AbpTenantManagementHttpApiClientModule),
     typeof(AbpSettingManagementHttpApiClientModule)
 )]
+[ExcludeFromCodeCoverage]
 public class RCSHttpApiClientModule : AbpModule
 {
     public const string RemoteServiceName = "Default";

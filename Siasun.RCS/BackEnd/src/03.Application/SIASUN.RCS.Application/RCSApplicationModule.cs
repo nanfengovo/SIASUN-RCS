@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.Account;
@@ -20,6 +21,7 @@ namespace SIASUN.RCS;
     typeof(AbpTenantManagementApplicationModule),
     typeof(AbpSettingManagementApplicationModule)
     )]
+[ExcludeFromCodeCoverage]
 public class RCSApplicationModule : AbpModule
 {
 
