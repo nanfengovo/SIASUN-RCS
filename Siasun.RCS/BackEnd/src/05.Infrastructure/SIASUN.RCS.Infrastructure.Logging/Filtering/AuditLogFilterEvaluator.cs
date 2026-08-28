@@ -130,7 +130,18 @@ namespace SIASUN.RCS.Infrastructure.Logging.Filtering
                 )).ToList();
 
                 Interlocked.Exchange(ref _rules, compiled);
-                _logger.LogInformation("API 审计日志过滤规则已热刷新，当前已加载 {Count} 条生效规则。", compiled.Count);
+
+                var whitelist = compiled.Where(r => r.RuleType == FilterRuleType.Whitelist).ToList();
+                var blacklist = compiled.Where(r => r.RuleType == FilterRuleType.Blacklist).ToList();
+
+                var whitelistStr = string.Join(", ", whitelist.Select(r => $"{r.Direction} {r.HttpMethod ?? "*"} {r.PathPattern}"));
+                var blacklistStr = string.Join(", ", blacklist.Select(r => $"{r.Direction} {r.HttpMethod ?? "*"} {r.PathPattern}"));
+
+                _logger.LogInformation(
+                    "API 审计日志过滤规则已热刷新，当前已加载 {Count} 条生效规则。白名单: [{Whitelist}]，黑名单: [{Blacklist}]",
+                    compiled.Count,
+                    whitelistStr,
+                    blacklistStr);
             }
             catch (Exception ex)
             {

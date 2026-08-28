@@ -11,6 +11,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Filtering
         public FilterRuleType RuleType { get; }
         public FilterDirection Direction { get; }
         public string HttpMethod { get; }
+        public string PathPattern { get; }
         public Regex PathRegex { get; }
 
         public CompiledFilterRule(
@@ -25,6 +26,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Filtering
             Name = name;
             RuleType = ruleType;
             Direction = direction;
+            PathPattern = pathPattern;
             HttpMethod = string.IsNullOrWhiteSpace(httpMethod) ? "*" : httpMethod.Trim().ToUpperInvariant();
             PathRegex = ConvertGlobToRegex(pathPattern);
         }
