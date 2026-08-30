@@ -281,3 +281,4 @@ src/SIASUN.RCS.Blazor.Server.Tiered/Logs/*
 # IdentityServer temp files
 tempkey.rsa
 tempkey.jwkgraphify-out/
+graphify-out/

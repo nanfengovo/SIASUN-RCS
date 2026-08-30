@@ -17,11 +17,6 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
             _dbContextFactory = dbContextFactory;
         }
 
-        public async Task PurgeBeforeAsync(DateTime expireTime, CancellationToken ct = default)
-        {
-            // 由 CleanupWorker 基于文件删除完成
-            await Task.CompletedTask;
-        }
 
         public async Task SaveBatchAsync(IReadOnlyList<EntityAuditLogEntry> entries, CancellationToken ct = default)
         {

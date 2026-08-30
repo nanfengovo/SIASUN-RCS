@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
-using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Local;
 using SIASUN.RCS.Permissions;
@@ -13,24 +11,27 @@ using SIASUN.RCS.Permissions;
 namespace SIASUN.RCS.Auditing
 {
     [Authorize(RCSPermissions.EntityAuditRules.Default)]
-    public class EntityAuditRuleAppService : 
+    public class EntityAuditRuleAppService :
         CrudAppService<
-            EntityAuditRule, 
-            EntityAuditRuleDto, 
-            Guid, 
-            Volo.Abp.Application.Dtos.PagedAndSortedResultRequestDto, 
-            CreateUpdateEntityAuditRuleDto, 
+            EntityAuditRule,
+            EntityAuditRuleDto,
+            Guid,
+            Volo.Abp.Application.Dtos.PagedAndSortedResultRequestDto,
+            CreateUpdateEntityAuditRuleDto,
             CreateUpdateEntityAuditRuleDto>,
         IEntityAuditRuleAppService
     {
         private readonly ILocalEventBus _localEventBus;
+        private readonly IEntityTypeProvider _entityTypeProvider;
 
         public EntityAuditRuleAppService(
             IRepository<EntityAuditRule, Guid> repository,
-            ILocalEventBus localEventBus) : base(repository)
+            ILocalEventBus localEventBus,
+            IEntityTypeProvider entityTypeProvider) : base(repository)
         {
             _localEventBus = localEventBus;
-            
+            _entityTypeProvider = entityTypeProvider;
+
             CreatePolicyName = RCSPermissions.EntityAuditRules.Create;
             UpdatePolicyName = RCSPermissions.EntityAuditRules.Edit;
             DeletePolicyName = RCSPermissions.EntityAuditRules.Delete;
@@ -61,10 +62,10 @@ namespace SIASUN.RCS.Auditing
                 updateInput.ExcludedProperties,
                 updateInput.Priority
             );
-            
+
             if (updateInput.IsEnabled && !entity.IsEnabled) entity.Enable();
             if (!updateInput.IsEnabled && entity.IsEnabled) entity.Disable();
-            
+
             await Task.CompletedTask;
         }
 
@@ -100,22 +101,7 @@ namespace SIASUN.RCS.Auditing
 
         public async Task<List<EntityTypeDiscoveryDto>> GetDiscoverableEntityTypesAsync()
         {
-            // 通过反射扫描当前应用程序域中所有继承自 IEntity 的实体类
-            var entityTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .Where(a => a.FullName != null && a.FullName.Contains("SIASUN.RCS"))
-                .SelectMany(a =>
-                {
-                    try
-                    {
-                        return a.GetTypes();
-                    }
-                    catch
-                    {
-                        return Array.Empty<Type>();
-                    }
-                })
-                .Where(t => t.IsClass && !t.IsAbstract && typeof(IEntity).IsAssignableFrom(t))
-                .ToList();
+            var entityTypes = _entityTypeProvider.GetEntityTypes();
 
             var existingRules = await Repository.GetListAsync();
             var existingPatterns = existingRules.Select(r => r.EntityTypePattern).ToHashSet();

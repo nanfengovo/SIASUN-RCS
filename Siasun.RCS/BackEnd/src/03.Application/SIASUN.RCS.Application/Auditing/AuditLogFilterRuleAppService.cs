@@ -29,8 +29,8 @@ namespace SIASUN.RCS.Auditing
         {
             var query = await _ruleRepository.GetQueryableAsync();
             if (!string.IsNullOrWhiteSpace(input.Filter)) query = query.Where(x => x.Name.Contains(input.Filter) || x.PathPattern.Contains(input.Filter));
-            var count = query.Count();
-            var list = query.OrderByDescending(x => x.CreationTime).Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+            var count = await AsyncExecuter.CountAsync(query);
+            var list = await AsyncExecuter.ToListAsync(query.OrderByDescending(x => x.CreationTime).Skip(input.SkipCount).Take(input.MaxResultCount));
             
             return new PagedResultDto<AuditLogFilterRuleDto>(count, ObjectMapper.Map<List<AuditLogFilterRule>, List<AuditLogFilterRuleDto>>(list));
         }

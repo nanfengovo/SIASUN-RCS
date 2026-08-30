@@ -24,6 +24,5 @@ namespace SIASUN.RCS.Auditing
         /// <param name="expireTime"></param>
         /// <param name="ct"></param>
         /// <returns></returns>
-        Task PurgeBeforeAsync(DateTime expireTime, CancellationToken ct = default);
     }
 }

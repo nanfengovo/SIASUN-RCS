@@ -1,0 +1,16 @@
+--- src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Auditing/EntityAuditInterceptor.cs
++++ src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Auditing/EntityAuditInterceptor.cs
+@@ -10,12 +10,13 @@
+ using Volo.Abp.Auditing;
+ using Volo.Abp.Data;
+ using Volo.Abp.DependencyInjection;
+ using Volo.Abp.Security.Claims;
+ using Volo.Abp.Tracing;
+ 
+ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
+ {
+-    public class EntityAuditInterceptor : SaveChangesInterceptor
++    public class EntityAuditInterceptor : SaveChangesInterceptor, ISingletonDependency
+     {
+         private readonly IEntityAuditLogChannel _channel;
+         private readonly IEntityAuditRuleEvaluator _evaluator;

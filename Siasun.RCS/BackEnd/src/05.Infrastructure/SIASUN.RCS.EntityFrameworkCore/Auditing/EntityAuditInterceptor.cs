@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -7,28 +6,31 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Caching.Memory;
 using SIASUN.RCS.Auditing;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.Tracing;
 
 namespace SIASUN.RCS.EntityFrameworkCore.Auditing
 {
-    public class EntityAuditInterceptor : SaveChangesInterceptor
+    public class EntityAuditInterceptor : SaveChangesInterceptor, ISingletonDependency
     {
         private readonly IServiceProvider _serviceProvider;
         private IEntityAuditLogChannel? _channel;
         private ICorrelationIdProvider? _correlationIdProvider;
         private IEntityAuditRuleEvaluator? _evaluator;
-
-        private static readonly ConcurrentDictionary<string, DateTime> _lastAuditTimes = new();
+        private IMemoryCache? _memoryCache;
 
         public EntityAuditInterceptor(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
         }
 
-        private IEntityAuditLogChannel GetChannel() => _channel ??= _serviceProvider.GetRequiredService<IEntityAuditLogChannel>();
-        private ICorrelationIdProvider GetCorrelationIdProvider() => _correlationIdProvider ??= _serviceProvider.GetRequiredService<ICorrelationIdProvider>();
-        private IEntityAuditRuleEvaluator GetEvaluator() => _evaluator ??= _serviceProvider.GetRequiredService<IEntityAuditRuleEvaluator>();
+        // 使用 GetService（可选解析）：DbMigrator / 无 Logging 模块时返回 null 而不崩溃
+        private IEntityAuditLogChannel? GetChannel() => _channel ??= _serviceProvider.GetService<IEntityAuditLogChannel>();
+        private ICorrelationIdProvider? GetCorrelationIdProvider() => _correlationIdProvider ??= _serviceProvider.GetService<ICorrelationIdProvider>();
+        private IEntityAuditRuleEvaluator? GetEvaluator() => _evaluator ??= _serviceProvider.GetService<IEntityAuditRuleEvaluator>();
+        private IMemoryCache? GetMemoryCache() => _memoryCache ??= _serviceProvider.GetService<IMemoryCache>();
 
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
@@ -47,6 +49,7 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
             if (context == null) return;
 
             var evaluator = GetEvaluator();
+            if (evaluator == null) return; // DbMigrator / 无 Logging 模块时直接跳过
 
             foreach (var entry in context.ChangeTracker.Entries())
             {
@@ -67,18 +70,18 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                 // 检查采样频率
                 if (ruleResult.SampleIntervalMs > 0)
                 {
-                    var entityIdStr = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey())?.CurrentValue?.ToString() ?? "unknown";
-                    var cacheKey = $"{fullName}_{entityIdStr}_{entry.State}";
-                    
-                    var now = DateTime.UtcNow;
-                    if (_lastAuditTimes.TryGetValue(cacheKey, out var lastTime))
+                    var memCache = GetMemoryCache();
+                    if (memCache != null)
                     {
-                        if ((now - lastTime).TotalMilliseconds < ruleResult.SampleIntervalMs)
+                        var entityIdStr = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey())?.CurrentValue?.ToString() ?? "unknown";
+                        var cacheKey = $"{fullName}_{entityIdStr}_{entry.State}";
+                        
+                        if (memCache.TryGetValue(cacheKey, out _))
                         {
-                            continue; // 抛弃该次审计
+                            continue; // 仍在采样冷却期内，抛弃该次审计
                         }
+                        memCache.Set(cacheKey, true, TimeSpan.FromMilliseconds(ruleResult.SampleIntervalMs));
                     }
-                    _lastAuditTimes[cacheKey] = now;
                 }
 
                 var excludedProps = ruleResult.ExcludedProperties?.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
@@ -86,19 +89,6 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
 
                 var changedProps = new List<string>();
-
-                if (ruleResult.Mode == EntityAuditMode.Full)
-                {
-                    // Full模式由后台序列化，所以这里只需要记录属性名即可，或者构建字典？
-                    // Wait, the review said "Full 字典构建仍在 Interceptor". I will just store changed properties list.
-                    // Wait, if it's Full mode, we need the Old/New values.
-                    // But to avoid dict building in hot path, we could just rely on the consumer? 
-                    // No, consumer cannot read ChangeTracker because DbContext might be disposed!
-                    // So we MUST build the dictionary here if it's Full mode. Or wait, the user's review recommended:
-                    // "把字典构建也挪到 Consumer，或只传 PropertyEntry 快照".
-                    // However, we can't easily pass PropertyEntry because the Entity framework might dispose it.
-                    // Let's just build it here since we have no choice, but skip ExcludedProperties.
-                }
 
                 var originalValues = new Dictionary<string, object?>();
                 var currentValues = new Dictionary<string, object?>();
@@ -128,10 +118,10 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     }
                 }
 
-                // 如果没有任何改变，忽略
                 if (changedProps.Count == 0) continue;
 
-                var traceId = GetCorrelationIdProvider().Get() ?? Guid.NewGuid().ToString("N");
+                var correlationIdProvider = GetCorrelationIdProvider();
+                var traceId = correlationIdProvider?.Get() ?? Guid.NewGuid().ToString("N");
                 var pkProp = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey());
                 var pkValue = pkProp?.CurrentValue?.ToString() ?? "0";
 
@@ -147,7 +137,7 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     CreationTime = DateTime.UtcNow
                 };
 
-                GetChannel().TryWrite(msg);
+                GetChannel()?.TryWrite(msg);
             }
         }
     }
