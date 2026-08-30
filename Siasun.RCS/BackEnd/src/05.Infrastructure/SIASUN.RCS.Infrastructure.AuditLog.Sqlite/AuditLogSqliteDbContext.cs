@@ -6,6 +6,7 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
     public class AuditLogSqliteDbContext : DbContext
     {
         public DbSet<ApiAuditLogEntry> ApiAuditLogs { get; set; } = null!;
+        public DbSet<EntityAuditLogEntry> EntityAuditLogs { get; set; } = null!;
 
         public AuditLogSqliteDbContext(DbContextOptions<AuditLogSqliteDbContext> options) : base(options)
         {
@@ -29,6 +30,21 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
                 b.Property(x => x.Path).HasMaxLength(256);
                 b.Property(x => x.ClientIpAddress).HasMaxLength(64);
                 b.Property(x => x.ClientName).HasMaxLength(64);
+            });
+
+            builder.Entity<EntityAuditLogEntry>(b =>
+            {
+                b.ToTable("EntityAuditLogs");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Id).ValueGeneratedOnAdd();
+                b.HasIndex(x => x.CreationTime);
+                b.HasIndex(x => x.TraceId);
+                b.HasIndex(x => x.EntityName);
+
+                b.Property(x => x.TraceId).HasMaxLength(64);
+                b.Property(x => x.EntityName).HasMaxLength(128);
+                b.Property(x => x.EntityId).HasMaxLength(128);
+                b.Property(x => x.Action).HasMaxLength(32);
             });
         }
     }

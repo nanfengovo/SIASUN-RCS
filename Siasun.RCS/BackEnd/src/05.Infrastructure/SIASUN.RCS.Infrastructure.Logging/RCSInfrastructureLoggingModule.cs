@@ -9,7 +9,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
         typeof(RCSDomainModule)
     )]
     [ExcludeFromCodeCoverage]
-public class RCSInfrastructureLoggingModule : AbpModule
+    public class RCSInfrastructureLoggingModule : AbpModule
     {
         public override void ConfigureServices(ServiceConfigurationContext context)
         {

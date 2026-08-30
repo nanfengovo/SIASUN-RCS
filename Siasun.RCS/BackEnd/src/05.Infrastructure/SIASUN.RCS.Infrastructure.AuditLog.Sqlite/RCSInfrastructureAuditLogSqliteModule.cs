@@ -42,6 +42,7 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
 
             // 注册存储接口实现
             context.Services.AddSingleton<IApiAuditLogStore, SqliteApiAuditLogStore>();
+            context.Services.AddSingleton<IEntityAuditLogStore, SqliteEntityAuditLogStore>();
         }
 
         public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
