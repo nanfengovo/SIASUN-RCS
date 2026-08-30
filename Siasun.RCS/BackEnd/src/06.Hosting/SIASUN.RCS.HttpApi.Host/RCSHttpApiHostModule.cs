@@ -267,7 +267,9 @@ public class RCSHttpApiHostModule : AbpModule
 
                     var isBusiness = path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase);
                     var isAdapters = path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
-                    var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase);
+                    var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase)
+                        || path.StartsWith("api/app/audit-log-filter-rule", StringComparison.OrdinalIgnoreCase)
+                        || path.StartsWith("api/app/entity-audit-rule", StringComparison.OrdinalIgnoreCase);
 
                     return docName switch
                     {
