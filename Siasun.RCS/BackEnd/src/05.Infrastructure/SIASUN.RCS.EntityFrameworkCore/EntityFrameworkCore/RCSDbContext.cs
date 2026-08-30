@@ -27,6 +27,7 @@ public class RCSDbContext :
     IIdentityDbContext
 {
     public DbSet<AuditLogFilterRule> AuditLogFilterRules { get; set; } = null!;
+    public DbSet<EntityAuditRule> EntityAuditRules { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -79,6 +80,15 @@ public class RCSDbContext :
             b.Property(x => x.HttpMethod).HasMaxLength(AuditLogFilterRuleConsts.MaxHttpMethodLength);
             b.Property(x => x.Description).HasMaxLength(AuditLogFilterRuleConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.RuleType, x.IsEnabled, x.Direction });
+        });
+        builder.Entity<EntityAuditRule>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "EntityAuditRules", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(EntityAuditRuleConsts.MaxNameLength);
+            b.Property(x => x.EntityTypePattern).IsRequired().HasMaxLength(EntityAuditRuleConsts.MaxEntityTypePatternLength);
+            b.Property(x => x.ExcludedProperties).HasMaxLength(EntityAuditRuleConsts.MaxExcludedPropertiesLength);
+            b.HasIndex(x => new { x.Priority, x.IsEnabled });
         });
     }
 }

@@ -32,7 +32,7 @@ namespace SIASUN.RCS.Auditing
             _localEventBus = localEventBus;
             
             CreatePolicyName = RCSPermissions.EntityAuditRules.Create;
-            UpdatePolicyName = RCSPermissions.EntityAuditRules.Update;
+            UpdatePolicyName = RCSPermissions.EntityAuditRules.Edit;
             DeletePolicyName = RCSPermissions.EntityAuditRules.Delete;
         }
 
@@ -68,7 +68,7 @@ namespace SIASUN.RCS.Auditing
             await Task.CompletedTask;
         }
 
-        [Authorize(RCSPermissions.EntityAuditRules.Update)]
+        [Authorize(RCSPermissions.EntityAuditRules.Edit)]
         public async Task ToggleAsync(Guid id)
         {
             var entity = await Repository.GetAsync(id);

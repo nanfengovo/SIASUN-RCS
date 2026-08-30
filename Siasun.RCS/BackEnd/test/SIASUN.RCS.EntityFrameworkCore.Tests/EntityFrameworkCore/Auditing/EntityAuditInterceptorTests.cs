@@ -45,7 +45,7 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
             services.AddSingleton(mockChannel);
             
             var mockEvaluator = Substitute.For<IEntityAuditRuleEvaluator>();
-            mockEvaluator.Evaluate(Arg.Any<string>(), Arg.Any<string>()).Returns(EntityAuditMode.Full);
+            mockEvaluator.Evaluate(Arg.Any<string>(), Arg.Any<string>()).Returns(new EntityAuditRuleResult(EntityAuditMode.Full, 0, null));
             services.AddSingleton(mockEvaluator);
             
             var serviceProvider = services.BuildServiceProvider();

@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using SIASUN.RCS.Permissions;
+using System.Linq;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Local;
-using SIASUN.RCS.Infrastructure.Logging.Filtering;
 
 namespace SIASUN.RCS.Auditing
 {
@@ -25,10 +25,13 @@ namespace SIASUN.RCS.Auditing
             _localEventBus = localEventBus;
         }
 
-        public async Task<PagedResultDto<AuditLogFilterRuleDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+        public async Task<PagedResultDto<AuditLogFilterRuleDto>> GetListAsync(GetAuditLogFilterRulesInput input)
         {
-            var count = await _ruleRepository.GetCountAsync();
-            var list = await _ruleRepository.GetPagedListAsync(input.SkipCount, input.MaxResultCount, "CreationTime DESC");
+            var query = await _ruleRepository.GetQueryableAsync();
+            if (!string.IsNullOrWhiteSpace(input.Filter)) query = query.Where(x => x.Name.Contains(input.Filter) || x.PathPattern.Contains(input.Filter));
+            var count = query.Count();
+            var list = query.OrderByDescending(x => x.CreationTime).Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
+            
             return new PagedResultDto<AuditLogFilterRuleDto>(count, ObjectMapper.Map<List<AuditLogFilterRule>, List<AuditLogFilterRuleDto>>(list));
         }
 

@@ -1,0 +1,26 @@
+--- src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/EntityFrameworkCore/RCSDbContext.cs
++++ src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/EntityFrameworkCore/RCSDbContext.cs
+@@ -28,6 +28,7 @@
+      */
+     public DbSet<AppUser> Users { get; set; }
+     public DbSet<AuditLogFilterRule> AuditLogFilterRules { get; set; } = null!;
++    public DbSet<EntityAuditRule> EntityAuditRules { get; set; } = null!;
+ 
+     //Tenant Management
+     public DbSet<Tenant> Tenants { get; set; }
+@@ -83,6 +84,14 @@
+             b.HasIndex(x => x.PathPattern);
+             b.HasIndex(x => x.IsEnabled);
+         });
++
++        builder.Entity<EntityAuditRule>(b =>
++        {
++            b.ToTable(RCSConsts.DbTablePrefix + "EntityAuditRules", RCSConsts.DbSchema);
++            b.ConfigureByConvention();
++            b.Property(x => x.Name).IsRequired().HasMaxLength(EntityAuditRuleConsts.MaxNameLength);
++            b.Property(x => x.EntityTypePattern).IsRequired().HasMaxLength(EntityAuditRuleConsts.MaxEntityTypePatternLength);
++            b.Property(x => x.ExcludedProperties).HasMaxLength(EntityAuditRuleConsts.MaxExcludedPropertiesLength);
++            b.HasIndex(x => new { x.Priority, x.IsEnabled });
++        });
+     }
+ }
