@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -7,19 +6,20 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Caching.Memory;
 using SIASUN.RCS.Auditing;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.Tracing;
 
 namespace SIASUN.RCS.EntityFrameworkCore.Auditing
 {
-    public class EntityAuditInterceptor : SaveChangesInterceptor
+    public class EntityAuditInterceptor : SaveChangesInterceptor, ISingletonDependency
     {
         private readonly IServiceProvider _serviceProvider;
         private IEntityAuditLogChannel? _channel;
         private ICorrelationIdProvider? _correlationIdProvider;
         private IEntityAuditRuleEvaluator? _evaluator;
-
-        private static readonly ConcurrentDictionary<string, DateTime> _lastAuditTimes = new();
+        private IMemoryCache? _memoryCache;
 
         public EntityAuditInterceptor(IServiceProvider serviceProvider)
         {
@@ -29,6 +29,7 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
         private IEntityAuditLogChannel GetChannel() => _channel ??= _serviceProvider.GetRequiredService<IEntityAuditLogChannel>();
         private ICorrelationIdProvider GetCorrelationIdProvider() => _correlationIdProvider ??= _serviceProvider.GetRequiredService<ICorrelationIdProvider>();
         private IEntityAuditRuleEvaluator GetEvaluator() => _evaluator ??= _serviceProvider.GetRequiredService<IEntityAuditRuleEvaluator>();
+        private IMemoryCache GetMemoryCache() => _memoryCache ??= _serviceProvider.GetRequiredService<IMemoryCache>();
 
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
@@ -70,15 +71,11 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     var entityIdStr = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey())?.CurrentValue?.ToString() ?? "unknown";
                     var cacheKey = $"{fullName}_{entityIdStr}_{entry.State}";
                     
-                    var now = DateTime.UtcNow;
-                    if (_lastAuditTimes.TryGetValue(cacheKey, out var lastTime))
+                    if (GetMemoryCache().TryGetValue(cacheKey, out _))
                     {
-                        if ((now - lastTime).TotalMilliseconds < ruleResult.SampleIntervalMs)
-                        {
-                            continue; // 抛弃该次审计
-                        }
+                        continue; // 仍在采样冷却期内，抛弃该次审计
                     }
-                    _lastAuditTimes[cacheKey] = now;
+                    GetMemoryCache().Set(cacheKey, true, TimeSpan.FromMilliseconds(ruleResult.SampleIntervalMs));
                 }
 
                 var excludedProps = ruleResult.ExcludedProperties?.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
@@ -86,19 +83,6 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>();
 
                 var changedProps = new List<string>();
-
-                if (ruleResult.Mode == EntityAuditMode.Full)
-                {
-                    // Full模式由后台序列化，所以这里只需要记录属性名即可，或者构建字典？
-                    // Wait, the review said "Full 字典构建仍在 Interceptor". I will just store changed properties list.
-                    // Wait, if it's Full mode, we need the Old/New values.
-                    // But to avoid dict building in hot path, we could just rely on the consumer? 
-                    // No, consumer cannot read ChangeTracker because DbContext might be disposed!
-                    // So we MUST build the dictionary here if it's Full mode. Or wait, the user's review recommended:
-                    // "把字典构建也挪到 Consumer，或只传 PropertyEntry 快照".
-                    // However, we can't easily pass PropertyEntry because the Entity framework might dispose it.
-                    // Let's just build it here since we have no choice, but skip ExcludedProperties.
-                }
 
                 var originalValues = new Dictionary<string, object?>();
                 var currentValues = new Dictionary<string, object?>();

@@ -8,6 +8,5 @@ namespace SIASUN.RCS.Auditing
     public interface IEntityAuditLogStore
     {
         Task SaveBatchAsync(IReadOnlyList<EntityAuditLogEntry> entries, CancellationToken ct = default);
-        Task PurgeBeforeAsync(DateTime expireTime, CancellationToken ct = default);
     }
 }

@@ -1,0 +1,31 @@
+--- src/02.Domain/SIASUN.RCS.Domain/Auditing/AuditLogFilterRule.cs
++++ src/02.Domain/SIASUN.RCS.Domain/Auditing/AuditLogFilterRule.cs
+@@ -1,5 +1,6 @@
+ using System;
++using Volo.Abp;
+ using Volo.Abp.Domain.Entities.Auditing;
+ 
+ namespace SIASUN.RCS.Auditing
+ {
+@@ -27,8 +28,8 @@
+             bool isEnabled = true,
+             string? description = null) : base(id)
+         {
+-            Name = name;
+-            PathPattern = pathPattern;
++            Name = Check.NotNullOrWhiteSpace(name, nameof(name), AuditLogFilterRuleConsts.MaxNameLength);
++            PathPattern = Check.NotNullOrWhiteSpace(pathPattern, nameof(pathPattern), AuditLogFilterRuleConsts.MaxPathPatternLength);
+             RuleType = ruleType;
+             Direction = direction;
+             HttpMethod = string.IsNullOrWhiteSpace(httpMethod) ? "*" : httpMethod.ToUpperInvariant();
+@@ -38,8 +39,8 @@
+ 
+         public void Update(string name, string pathPattern, FilterRuleType ruleType, FilterDirection direction, string httpMethod, bool isEnabled, string? description)
+         {
+-            Name = name;
+-            PathPattern = pathPattern;
++            Name = Check.NotNullOrWhiteSpace(name, nameof(name), AuditLogFilterRuleConsts.MaxNameLength);
++            PathPattern = Check.NotNullOrWhiteSpace(pathPattern, nameof(pathPattern), AuditLogFilterRuleConsts.MaxPathPatternLength);
+             RuleType = ruleType;
+             Direction = direction;
+             HttpMethod = string.IsNullOrWhiteSpace(httpMethod) ? "*" : httpMethod.ToUpperInvariant();

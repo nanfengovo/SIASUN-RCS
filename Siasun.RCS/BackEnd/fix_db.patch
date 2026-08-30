@@ -1,0 +1,25 @@
+--- src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/EntityFrameworkCore/RCSDbContext.cs
++++ src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/EntityFrameworkCore/RCSDbContext.cs
+@@ -27,6 +27,7 @@
+     IIdentityDbContext
+ {
+     public DbSet<AuditLogFilterRule> AuditLogFilterRules { get; set; } = null!;
++    public DbSet<EntityAuditRule> EntityAuditRules { get; set; } = null!;
+ 
+     #region Entities from the modules
+ 
+@@ -83,6 +84,15 @@
+             b.Property(x => x.Description).HasMaxLength(AuditLogFilterRuleConsts.MaxDescriptionLength);
+             b.HasIndex(x => new { x.RuleType, x.IsEnabled, x.Direction });
+         });
++        
++        builder.Entity<EntityAuditRule>(b =>
++        {
++            b.ToTable(RCSConsts.DbTablePrefix + "EntityAuditRules", RCSConsts.DbSchema);
++            b.ConfigureByConvention();
++            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
++            b.Property(x => x.EntityTypePattern).IsRequired().HasMaxLength(256);
++            b.HasIndex(x => x.Priority);
++        });
+     }
+ }

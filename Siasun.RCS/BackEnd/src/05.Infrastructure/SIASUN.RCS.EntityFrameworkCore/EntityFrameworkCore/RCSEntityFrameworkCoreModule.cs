@@ -56,18 +56,13 @@ public class RCSEntityFrameworkCoreModule : AbpModule
         {
             options.PreConfigure<RCSDbContext>(ctx =>
             {
-                var interceptor = ctx.ServiceProvider.GetService<SIASUN.RCS.EntityFrameworkCore.Auditing.EntityAuditInterceptor>();
-                if (interceptor != null)
-                {
-                    ctx.DbContextOptions.AddInterceptors(interceptor);
-                }
+                var interceptor = ctx.ServiceProvider.GetRequiredService<SIASUN.RCS.EntityFrameworkCore.Auditing.EntityAuditInterceptor>();
+                ctx.DbContextOptions.AddInterceptors(interceptor);
             });
 
             /* The main point to change your DBMS.
              * See also RCSDbContextFactory for EF Core tooling. */
-
             options.UseSqlServer();
-
         });
 
     }

@@ -1,0 +1,22 @@
+--- test/SIASUN.RCS.TestBase/RCSTestBaseModule.cs
++++ test/SIASUN.RCS.TestBase/RCSTestBaseModule.cs
+@@ -7,6 +7,8 @@
+ using Volo.Abp.Data;
+ using Volo.Abp.Modularity;
+ using Volo.Abp.Threading;
++using SIASUN.RCS.Auditing;
++using NSubstitute;
+ 
+ namespace SIASUN.RCS;
+ 
+@@ -25,6 +27,10 @@
+         });
+ 
+         context.Services.AddAlwaysAllowAuthorization();
++
++        context.Services.AddSingleton(Substitute.For<IEntityAuditLogChannel>());
++        context.Services.AddSingleton(Substitute.For<ICorrelationIdProvider>());
++        context.Services.AddSingleton(Substitute.For<IEntityAuditRuleEvaluator>());
+     }
+ 
+     public override void OnApplicationInitialization(ApplicationInitializationContext context)
