@@ -1,0 +1,11 @@
+--- test/SIASUN.RCS.Infrastructure.Tests/AuditFilterRulesChangedEventHandlerTests.cs
++++ test/SIASUN.RCS.Infrastructure.Tests/AuditFilterRulesChangedEventHandlerTests.cs
+@@ -20,7 +20,7 @@
+ 
+             await handler.HandleEventAsync(new AuditFilterRulesChangedEvent());
+ 
+-            await evaluator.Received(1).InitializeAsync();
++            await evaluator.Received(1).RefreshRulesAsync();
+         }
+     }
+ }

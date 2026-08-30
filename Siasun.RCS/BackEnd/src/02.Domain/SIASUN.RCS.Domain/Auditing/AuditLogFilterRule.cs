@@ -5,15 +5,15 @@ namespace SIASUN.RCS.Auditing
 {
     public class AuditLogFilterRule : FullAuditedAggregateRoot<Guid>
     {
-        public string Name { get; set; } = string.Empty;
-        public string PathPattern { get; set; } = string.Empty;
-        public FilterRuleType RuleType { get; set; }
-        public FilterDirection Direction { get; set; }
-        public string HttpMethod { get; set; } = "*";
-        public bool IsEnabled { get; set; } = true;
-        public string? Description { get; set; }
+        public string Name { get; private set; } = string.Empty;
+        public string PathPattern { get; private set; } = string.Empty;
+        public FilterRuleType RuleType { get; private set; }
+        public FilterDirection Direction { get; private set; }
+        public string HttpMethod { get; private set; } = "*";
+        public bool IsEnabled { get; private set; } = true;
+        public string? Description { get; private set; }
 
-        public AuditLogFilterRule()
+        protected AuditLogFilterRule()
         {
         }
 
@@ -34,6 +34,22 @@ namespace SIASUN.RCS.Auditing
             HttpMethod = string.IsNullOrWhiteSpace(httpMethod) ? "*" : httpMethod.ToUpperInvariant();
             IsEnabled = isEnabled;
             Description = description;
+        }
+
+        public void Update(string name, string pathPattern, FilterRuleType ruleType, FilterDirection direction, string httpMethod, bool isEnabled, string? description)
+        {
+            Name = name;
+            PathPattern = pathPattern;
+            RuleType = ruleType;
+            Direction = direction;
+            HttpMethod = string.IsNullOrWhiteSpace(httpMethod) ? "*" : httpMethod.ToUpperInvariant();
+            IsEnabled = isEnabled;
+            Description = description;
+        }
+
+        public void Toggle()
+        {
+            IsEnabled = !IsEnabled;
         }
     }
 }

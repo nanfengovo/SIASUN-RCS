@@ -11,4 +11,12 @@ public static class RCSPermissions
         public const string Edit = Default + ".Edit";
         public const string Delete = Default + ".Delete";
     }
+
+    public static class EntityAuditRules
+    {
+        public const string Default = GroupName + ".EntityAuditRules";
+        public const string Create = Default + ".Create";
+        public const string Edit = Default + ".Edit";
+        public const string Delete = Default + ".Delete";
+    }
 }

@@ -1,0 +1,27 @@
+--- src/06.Hosting/SIASUN.RCS.HttpApi.Host/RCSHttpApiHostModule.cs
++++ src/06.Hosting/SIASUN.RCS.HttpApi.Host/RCSHttpApiHostModule.cs
+@@ -321,7 +321,7 @@
+     }
+ 
+ 
+-    public override void OnApplicationInitialization(ApplicationInitializationContext context)
++    public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
+     {
+         var app = context.GetApplicationBuilder();
+         var env = context.GetEnvironment();
+@@ -375,10 +375,13 @@
+ 
+         // 初始化 API 审计日志过滤规则引擎（预加载规则至内存快照）
+         var filterEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Infrastructure.Logging.Filtering.IAuditLogFilterEvaluator>();
+-        filterEvaluator.InitializeAsync().GetAwaiter().GetResult();
++        await filterEvaluator.InitializeAsync();
++
++        var entityEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Auditing.IEntityAuditRuleEvaluator>();
++        await entityEvaluator.RefreshRulesAsync();
+ 
+         // 报文日志拦截中间件
+-        app.UseMiddleware<InboundAuditMiddleware>();
++        app.UseMiddleware<SIASUN.RCS.Infrastructure.Logging.InboundAuditMiddleware>();
+         app.UseAuditing();
+         app.UseAbpSerilogEnrichers();
+         app.UseConfiguredEndpoints();

@@ -1,0 +1,15 @@
+--- src/03.Application/SIASUN.RCS.Application.Contracts/Permissions/RCSPermissions.cs
++++ src/03.Application/SIASUN.RCS.Application.Contracts/Permissions/RCSPermissions.cs
+@@ -11,4 +11,12 @@
+         public const string Edit = Default + ".Edit";
+         public const string Delete = Default + ".Delete";
+     }
++
++    public static class EntityAuditRules
++    {
++        public const string Default = GroupName + ".EntityAuditRules";
++        public const string Create = Default + ".Create";
++        public const string Edit = Default + ".Edit";
++        public const string Delete = Default + ".Delete";
++    }
+ }

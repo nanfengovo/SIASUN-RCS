@@ -4,42 +4,32 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using SIASUN.RCS.Auditing;
 
 namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
 {
-    public class SqliteApiAuditLogStore : IApiAuditLogStore
+    public class SqliteApiAuditLogStore : IApiAuditLogStore, Volo.Abp.DependencyInjection.ISingletonDependency
     {
+        private readonly IAuditLogDbContextFactory _dbContextFactory;
 
-        private readonly IServiceScopeFactory _scopeFactory;
-
-        private readonly ILogger<SqliteApiAuditLogStore> _logger;
-
-        public SqliteApiAuditLogStore(IServiceScopeFactory scopeFactory, ILogger<SqliteApiAuditLogStore> logger)
+        public SqliteApiAuditLogStore(IAuditLogDbContextFactory dbContextFactory)
         {
-            _scopeFactory = scopeFactory;
-            _logger = logger;
+            _dbContextFactory = dbContextFactory;
         }
 
         public async Task PurgeBeforeAsync(DateTime expireTime, CancellationToken ct = default)
         {
-            using var scope = _scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AuditLogSqliteDbContext>();
-
-            await dbContext.ApiAuditLogs.Where(x => x.CreationTime < expireTime).ExecuteDeleteAsync(ct);
+            // 清理逻辑现在由 AuditLogCleanupWorker 直接删除文件完成，这里留空或抛出 NotSupported
+            await Task.CompletedTask;
         }
 
         public async Task SaveBatchAsync(IReadOnlyList<ApiAuditLogEntry> entries, CancellationToken ct = default)
         {
-            if (entries == null || entries.Count == 0)
-            {
-                return;
-            }
+            if (entries == null || entries.Count == 0) return;
 
-            using var scope = _scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AuditLogSqliteDbContext>();
+            // 根据当批次第一条数据的时间决定写哪个库（理论上同批次时间极近）
+            var time = entries[0].CreationTime;
+            await using var dbContext = await _dbContextFactory.CreateAsync(time);
 
             await dbContext.ApiAuditLogs.AddRangeAsync(entries, ct);
             await dbContext.SaveChangesAsync(ct);

@@ -1,0 +1,38 @@
+--- src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Auditing/EntityAuditInterceptor.cs
++++ src/05.Infrastructure/SIASUN.RCS.EntityFrameworkCore/Auditing/EntityAuditInterceptor.cs
+@@ -93,7 +93,8 @@
+                     // Let's just build it here since we have no choice, but skip ExcludedProperties.
+                 }
+ 
+-                var changeDict = new Dictionary<string, object?>();
++                var originalValues = new Dictionary<string, object?>();
++                var currentValues = new Dictionary<string, object?>();
+ 
+                 foreach (var prop in entry.Properties)
+                 {
+@@ -107,11 +108,13 @@
+                         {
+                             if (entry.State == EntityState.Modified)
+                             {
+-                                changeDict[prop.Metadata.Name] = new { Old = prop.OriginalValue, New = prop.CurrentValue };
++                                originalValues[prop.Metadata.Name] = prop.OriginalValue;
++                                currentValues[prop.Metadata.Name] = prop.CurrentValue;
+                             }
+                             else
+                             {
+-                                changeDict[prop.Metadata.Name] = prop.CurrentValue;
++                                originalValues[prop.Metadata.Name] = null;
++                                currentValues[prop.Metadata.Name] = prop.CurrentValue;
+                             }
+                         }
+                     }
+@@ -131,7 +134,8 @@
+                     EntityId = pkValue,
+                     Action = entry.State.ToString(),
+                     ChangedProperties = changedProps,
+-                    RawChangesDictionary = ruleResult.Mode == EntityAuditMode.Full ? changeDict : null,
++                    OriginalValues = ruleResult.Mode == EntityAuditMode.Full ? originalValues : null,
++                    CurrentValues = ruleResult.Mode == EntityAuditMode.Full ? currentValues : null,
+                     CreationTime = DateTime.UtcNow
+                 };
+ 

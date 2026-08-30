@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using SIASUN.RCS.Permissions;
@@ -8,6 +7,7 @@ using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Local;
+using SIASUN.RCS.Infrastructure.Logging.Filtering;
 
 namespace SIASUN.RCS.Auditing
 {
@@ -25,48 +25,17 @@ namespace SIASUN.RCS.Auditing
             _localEventBus = localEventBus;
         }
 
-        public async Task<PagedResultDto<AuditLogFilterRuleDto>> GetListAsync(GetAuditLogFilterRulesInput input)
+        public async Task<PagedResultDto<AuditLogFilterRuleDto>> GetListAsync(PagedAndSortedResultRequestDto input)
         {
-            var query = await _ruleRepository.GetQueryableAsync();
-
-            if (!string.IsNullOrWhiteSpace(input.Filter))
-            {
-                var filter = input.Filter.Trim();
-                query = query.Where(x => x.Name.Contains(filter) || x.PathPattern.Contains(filter) || (x.Description != null && x.Description.Contains(filter)));
-            }
-
-            if (input.RuleType.HasValue)
-            {
-                query = query.Where(x => x.RuleType == input.RuleType.Value);
-            }
-
-            if (input.Direction.HasValue)
-            {
-                query = query.Where(x => x.Direction == input.Direction.Value);
-            }
-
-            if (input.IsEnabled.HasValue)
-            {
-                query = query.Where(x => x.IsEnabled == input.IsEnabled.Value);
-            }
-
-            var totalCount = await AsyncExecuter.CountAsync(query);
-
-            var items = await AsyncExecuter.ToListAsync(
-                query.OrderByDescending(x => x.CreationTime)
-                     .Skip(input.SkipCount)
-                     .Take(input.MaxResultCount)
-            );
-
-            var dtos = items.Select(x => MapToDto(x)).ToList();
-
-            return new PagedResultDto<AuditLogFilterRuleDto>(totalCount, dtos);
+            var count = await _ruleRepository.GetCountAsync();
+            var list = await _ruleRepository.GetPagedListAsync(input.SkipCount, input.MaxResultCount, "CreationTime DESC");
+            return new PagedResultDto<AuditLogFilterRuleDto>(count, ObjectMapper.Map<List<AuditLogFilterRule>, List<AuditLogFilterRuleDto>>(list));
         }
 
         public async Task<AuditLogFilterRuleDto> GetAsync(Guid id)
         {
             var entity = await _ruleRepository.GetAsync(id);
-            return MapToDto(entity);
+            return ObjectMapper.Map<AuditLogFilterRule, AuditLogFilterRuleDto>(entity);
         }
 
         [Authorize(RCSPermissions.AuditLogFilterRules.Create)]
@@ -82,71 +51,42 @@ namespace SIASUN.RCS.Auditing
                 input.IsEnabled,
                 input.Description
             );
-
+            
             await _ruleRepository.InsertAsync(entity, autoSave: true);
-
             await _localEventBus.PublishAsync(new AuditFilterRulesChangedEvent());
 
-            return MapToDto(entity);
+            return ObjectMapper.Map<AuditLogFilterRule, AuditLogFilterRuleDto>(entity);
         }
 
         [Authorize(RCSPermissions.AuditLogFilterRules.Edit)]
         public async Task<AuditLogFilterRuleDto> UpdateAsync(Guid id, UpdateAuditLogFilterRuleDto input)
         {
             var entity = await _ruleRepository.GetAsync(id);
-            entity.Name = input.Name;
-            entity.PathPattern = input.PathPattern;
-            entity.RuleType = input.RuleType;
-            entity.Direction = input.Direction;
-            entity.HttpMethod = input.HttpMethod;
-            entity.IsEnabled = input.IsEnabled;
-            entity.Description = input.Description;
+            
+            entity.Update(input.Name, input.PathPattern, input.RuleType, input.Direction, input.HttpMethod, input.IsEnabled, input.Description);
 
             await _ruleRepository.UpdateAsync(entity, autoSave: true);
-
             await _localEventBus.PublishAsync(new AuditFilterRulesChangedEvent());
 
-            return MapToDto(entity);
-        }
-
-        [Authorize(RCSPermissions.AuditLogFilterRules.Delete)]
-        public async Task DeleteAsync(Guid id)
-        {
-            await _ruleRepository.DeleteAsync(id, autoSave: true);
-
-            await _localEventBus.PublishAsync(new AuditFilterRulesChangedEvent());
+            return ObjectMapper.Map<AuditLogFilterRule, AuditLogFilterRuleDto>(entity);
         }
 
         [Authorize(RCSPermissions.AuditLogFilterRules.Edit)]
         public async Task<AuditLogFilterRuleDto> ToggleAsync(Guid id)
         {
             var entity = await _ruleRepository.GetAsync(id);
-            entity.IsEnabled = !entity.IsEnabled;
+            entity.Toggle();
             await _ruleRepository.UpdateAsync(entity, autoSave: true);
-
             await _localEventBus.PublishAsync(new AuditFilterRulesChangedEvent());
 
-            return MapToDto(entity);
+            return ObjectMapper.Map<AuditLogFilterRule, AuditLogFilterRuleDto>(entity);
         }
 
-        private static AuditLogFilterRuleDto MapToDto(AuditLogFilterRule entity)
+        [Authorize(RCSPermissions.AuditLogFilterRules.Delete)]
+        public async Task DeleteAsync(Guid id)
         {
-            return new AuditLogFilterRuleDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                PathPattern = entity.PathPattern,
-                RuleType = entity.RuleType,
-                Direction = entity.Direction,
-                HttpMethod = entity.HttpMethod,
-                IsEnabled = entity.IsEnabled,
-                Description = entity.Description,
-                CreationTime = entity.CreationTime,
-                CreatorId = entity.CreatorId,
-                LastModificationTime = entity.LastModificationTime,
-                LastModifierId = entity.LastModifierId,
-                ConcurrencyStamp = entity.ConcurrencyStamp
-            };
+            await _ruleRepository.DeleteAsync(id, autoSave: true);
+            await _localEventBus.PublishAsync(new AuditFilterRulesChangedEvent());
         }
     }
 }

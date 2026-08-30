@@ -14,6 +14,11 @@ public class RCSPermissionDefinitionProvider : PermissionDefinitionProvider
         filterRulesPermission.AddChild(RCSPermissions.AuditLogFilterRules.Create, L("Permission:Create"));
         filterRulesPermission.AddChild(RCSPermissions.AuditLogFilterRules.Edit, L("Permission:Edit"));
         filterRulesPermission.AddChild(RCSPermissions.AuditLogFilterRules.Delete, L("Permission:Delete"));
+
+        var entityRulesPermission = myGroup.AddPermission(RCSPermissions.EntityAuditRules.Default, L("Permission:EntityAuditRules"));
+        entityRulesPermission.AddChild(RCSPermissions.EntityAuditRules.Create, L("Permission:Create"));
+        entityRulesPermission.AddChild(RCSPermissions.EntityAuditRules.Edit, L("Permission:Edit"));
+        entityRulesPermission.AddChild(RCSPermissions.EntityAuditRules.Delete, L("Permission:Delete"));
     }
 
     private static LocalizableString L(string name)

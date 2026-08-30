@@ -100,8 +100,7 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     // Let's just build it here since we have no choice, but skip ExcludedProperties.
                 }
 
-                var originalValues = new Dictionary<string, object?>();
-                var currentValues = new Dictionary<string, object?>();
+                var changeDict = new Dictionary<string, object?>();
 
                 foreach (var prop in entry.Properties)
                 {
@@ -116,13 +115,11 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                         {
                             if (entry.State == EntityState.Modified)
                             {
-                                originalValues[prop.Metadata.Name] = prop.OriginalValue;
-                                currentValues[prop.Metadata.Name] = prop.CurrentValue;
+                                changeDict[prop.Metadata.Name] = new { Old = prop.OriginalValue, New = prop.CurrentValue };
                             }
                             else
                             {
-                                originalValues[prop.Metadata.Name] = null;
-                                currentValues[prop.Metadata.Name] = prop.CurrentValue;
+                                changeDict[prop.Metadata.Name] = prop.CurrentValue;
                             }
                         }
                     }
@@ -142,8 +139,7 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     EntityId = pkValue,
                     Action = entry.State.ToString(),
                     ChangedProperties = changedProps,
-                    OriginalValues = ruleResult.Mode == EntityAuditMode.Full ? originalValues : null,
-                    CurrentValues = ruleResult.Mode == EntityAuditMode.Full ? currentValues : null,
+                    RawChangesDictionary = ruleResult.Mode == EntityAuditMode.Full ? changeDict : null,
                     CreationTime = DateTime.UtcNow
                 };
 

@@ -320,7 +320,7 @@ public class RCSHttpApiHostModule : AbpModule
     }
 
 
-    public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
+    public override void OnApplicationInitialization(ApplicationInitializationContext context)
     {
         var app = context.GetApplicationBuilder();
         var env = context.GetEnvironment();
@@ -373,13 +373,10 @@ public class RCSHttpApiHostModule : AbpModule
 
         // 初始化 API 审计日志过滤规则引擎（预加载规则至内存快照）
         var filterEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Infrastructure.Logging.Filtering.IAuditLogFilterEvaluator>();
-        await filterEvaluator.InitializeAsync();
-
-        var entityEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Auditing.IEntityAuditRuleEvaluator>();
-        await entityEvaluator.RefreshRulesAsync();
+        filterEvaluator.InitializeAsync().GetAwaiter().GetResult();
 
         // 报文日志拦截中间件
-        app.UseMiddleware<SIASUN.RCS.Infrastructure.Logging.InboundAuditMiddleware>();
+        app.UseMiddleware<InboundAuditMiddleware>();
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();

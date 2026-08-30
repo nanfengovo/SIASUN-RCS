@@ -106,3 +106,12 @@ app.UseAbpSwaggerUI(options =>
 ## 3. 后续扩展区域 (TBD)
 *(后续如新增：数据库连接池配置、Redis 缓存策略、Serilog 诊断日志策略、消息队列消费组配置等，将持续补充于此)*
 
+
+### 1.3 实体操作审计（Entity Tracker）—— 精确追踪聚合根数据变更
+**类名**：`EntityAuditInterceptor` 和 `EntityAuditRuleEvaluator`
+**架构详解**：请参考项目根目录的详尽设计文档：[Architecture_AuditLog_Design_And_Optimization.md](docs/architecture/Architecture_AuditLog_Design_And_Optimization.md)（注：文档保存在 AI 脑区，也可直接查阅代码设计意图）
+**作用**：基于 EF Core 的 `SaveChangesInterceptor`，追踪重要业务实体（如 `AgvTask`）属性的具体变动（Old/New Value），用于故障追溯。
+**设计亮点**：
+- **异步解耦**：采用 `Channel<EntityAuditLogMessage>` 将高频的内存对象序列化与 SQLite I/O 持久化操作从主业务线程完全剥离。
+- **极致轻量**：采用按月切片（Sharding）的 SQLite WAL 模式（`api_audit_log_yyyyMM.db`），解决工控机磁盘容量与并发锁问题。无脑基于 `File.Delete` 的清理任务做到 O 锁释放。
+- **富聚合与热更新**：通过 Domain Event 实时刷新 `EntityAuditRuleEvaluator` 的前缀/后缀通配规则树，实现运行时动态无缝调级（Skip -> Summary -> Full）。
