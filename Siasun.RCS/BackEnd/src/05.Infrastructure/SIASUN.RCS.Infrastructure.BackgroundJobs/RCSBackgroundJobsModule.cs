@@ -44,6 +44,12 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
                     groupName: "Maintenance",
                     description: "每天定期清理过期的 SQLite 审计日志文件",
                     cronExpression: cleanupCron!);
+
+                options.AddJobAndTrigger<DiskSelfHealJob>(
+                    jobName: nameof(DiskSelfHealJob),
+                    groupName: "Maintenance",
+                    description: "高频自卫监控，磁盘达到高水位时强制清理日志",
+                    cronExpression: "0 */5 * * * ?"); // 默认每 5 分钟检查一次
             });
         }
     }

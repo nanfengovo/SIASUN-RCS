@@ -28,6 +28,7 @@ public class RCSDbContext :
 {
     public DbSet<AuditLogFilterRule> AuditLogFilterRules { get; set; } = null!;
     public DbSet<EntityAuditRule> EntityAuditRules { get; set; } = null!;
+    public DbSet<SIASUN.RCS.Monitor.SystemEventLog> SystemEventLogs { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -81,7 +82,7 @@ public class RCSDbContext :
             b.Property(x => x.Description).HasMaxLength(AuditLogFilterRuleConsts.MaxDescriptionLength);
             b.HasIndex(x => new { x.RuleType, x.IsEnabled, x.Direction });
         });
-        
+
         builder.Entity<EntityAuditRule>(b =>
         {
             b.ToTable(RCSConsts.DbTablePrefix + "EntityAuditRules", RCSConsts.DbSchema);
@@ -89,6 +90,17 @@ public class RCSDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(128);
             b.Property(x => x.EntityTypePattern).IsRequired().HasMaxLength(256);
             b.HasIndex(x => x.Priority);
+        });
+
+        builder.Entity<SIASUN.RCS.Monitor.SystemEventLog>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "SystemEventLogs", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.EventCategory).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Level).IsRequired().HasMaxLength(16);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(512);
+            b.HasIndex(x => x.CreationTime);
+            b.HasIndex(x => x.EventCategory);
         });
     }
 }
