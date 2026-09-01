@@ -1,20 +1,29 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using Shouldly;
 using SIASUN.RCS.Infrastructure.AuditLog.Sqlite;
 using Xunit;
 
 namespace SIASUN.RCS.Infrastructure.Tests.AuditLog.Sqlite
 {
-    public class AuditLogCleanupWorkerTests
+    /// <summary>
+    /// 测试 AuditLogCleanupJob（已由 QuartzBackgroundWorkerBase 重构为纯 IJob）
+    /// </summary>
+    public class AuditLogCleanupJobTests
     {
         [Fact]
-        public void Job_Should_Be_Configured()
+        public void AuditLogCleanupJob_Should_Implement_IJob()
         {
-            var worker = new AuditLogCleanupWorker();
-            worker.JobDetail.Key.Name.ShouldBe(nameof(AuditLogCleanupWorker));
-            worker.JobDetail.Key.Group.ShouldBe("MaintenanceGroup");
+            typeof(AuditLogCleanupJob)
+                .GetInterface(nameof(Quartz.IJob))
+                .ShouldNotBeNull();
+        }
+
+        [Fact]
+        public void AuditLogCleanupJob_Should_Have_DisallowConcurrentExecution()
+        {
+            typeof(AuditLogCleanupJob)
+                .GetCustomAttributes(typeof(Quartz.DisallowConcurrentExecutionAttribute), inherit: false)
+                .Length
+                .ShouldBe(1);
         }
     }
 }

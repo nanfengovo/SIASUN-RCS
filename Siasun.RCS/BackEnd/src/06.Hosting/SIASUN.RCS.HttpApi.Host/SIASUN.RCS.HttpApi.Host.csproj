@@ -47,7 +47,7 @@
     <ProjectReference Include="..\SIASUN.RCS.HttpApi\SIASUN.RCS.HttpApi.csproj" />
     <ProjectReference Include="..\..\05.Infrastructure\SIASUN.RCS.EntityFrameworkCore\SIASUN.RCS.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\05.Infrastructure\SIASUN.RCS.Infrastructure.Logging\SIASUN.RCS.Infrastructure.Logging.csproj" />
-    <ProjectReference Include="..\..\05.Infrastructure\SIASUN.RCS.Infrastructure.AuditLog.Sqlite\SIASUN.RCS.Infrastructure.AuditLog.Sqlite.csproj" />
+    <ProjectReference Include="..\..\05.Infrastructure\SIASUN.RCS.Infrastructure.BackgroundJobs\SIASUN.RCS.Infrastructure.BackgroundJobs.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,17 +3,19 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SIASUN.RCS.Auditing;
 using Volo.Abp;
-using Volo.Abp.BackgroundWorkers;
-using Volo.Abp.BackgroundWorkers.Quartz;
 using Volo.Abp.EntityFrameworkCore.Sqlite;
 using Volo.Abp.Modularity;
 
 namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
 {
+    /// <summary>
+    /// AuditLog SQLite 存储模块。
+    /// 只负责数据访问（DbContext、Store）和 SQLite 按月分库逻辑。
+    /// Quartz 调度注册已移至 SIASUN.RCS.Infrastructure.BackgroundJobs 统一管理。
+    /// </summary>
     [DependsOn(
-    typeof(RCSDomainModule),
-    typeof(AbpEntityFrameworkCoreSqliteModule),
-    typeof(AbpBackgroundWorkersQuartzModule)
+        typeof(RCSDomainModule),
+        typeof(AbpEntityFrameworkCoreSqliteModule)
     )]
     [ExcludeFromCodeCoverage]
     public class RCSInfrastructureAuditLogSqliteModule : AbpModule
@@ -28,9 +30,6 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
             // 初始化本月对应的数据库
             var factory = context.ServiceProvider.GetRequiredService<IAuditLogDbContextFactory>();
             await factory.CreateAsync();
-
-            // 注册 Quartz 定时清理任务
-            await context.AddBackgroundWorkerAsync<AuditLogCleanupWorker>();
         }
     }
 }

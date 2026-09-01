@@ -36,7 +36,7 @@ using Volo.Abp.Swashbuckle;
 using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Security.Claims;
 using SIASUN.RCS.Infrastructure.Logging;
-using SIASUN.RCS.Infrastructure.AuditLog.Sqlite;
+using SIASUN.RCS.Infrastructure.BackgroundJobs;
 using System;
 
 namespace SIASUN.RCS;
@@ -53,7 +53,7 @@ namespace SIASUN.RCS;
     typeof(AbpSwashbuckleModule),
     typeof(AbpAspNetCoreSerilogModule),
     typeof(RCSInfrastructureLoggingModule),
-    typeof(RCSInfrastructureAuditLogSqliteModule)
+    typeof(RCSBackgroundJobsModule)
     )]
 [ExcludeFromCodeCoverage]
 public class RCSHttpApiHostModule : AbpModule

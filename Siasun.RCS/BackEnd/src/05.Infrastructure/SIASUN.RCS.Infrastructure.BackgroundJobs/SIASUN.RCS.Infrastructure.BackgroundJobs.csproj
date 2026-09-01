@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SIASUN.RCS.Infrastructure.BackgroundJobs</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Quartz 调度框架（唯一拥有此依赖的模块） -->
+    <PackageReference Include="Volo.Abp.BackgroundWorkers.Quartz" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 引用需要调度的业务模块（Job 实现所在） -->
+    <ProjectReference Include="..\SIASUN.RCS.Infrastructure.AuditLog.Sqlite\SIASUN.RCS.Infrastructure.AuditLog.Sqlite.csproj" />
+    <!-- 引用 Domain 层获取 IBackgroundJobService 接口 -->
+    <ProjectReference Include="..\..\02.Domain\SIASUN.RCS.Domain\SIASUN.RCS.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
+
