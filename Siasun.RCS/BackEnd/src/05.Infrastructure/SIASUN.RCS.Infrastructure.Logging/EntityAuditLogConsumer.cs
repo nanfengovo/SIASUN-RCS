@@ -43,31 +43,31 @@ namespace SIASUN.RCS.Infrastructure.Logging
                                 CreationTime = msg.CreationTime
                             };
 
-                            // 在后台线程执行 CPU 密集型的 JSON 序列化
+                            // 在后台线程执行 CPU 密集型的 JSON 序列化，并利用 Source Generator 压榨性能
                             if (msg.ChangedProperties != null && msg.OriginalValues == null && msg.CurrentValues == null)
                             {
                                 // Summary Mode
-                                entry.PropertyChangesJson = JsonSerializer.Serialize(msg.ChangedProperties);
+                                entry.PropertyChangesJson = JsonSerializer.Serialize(msg.ChangedProperties, EntityAuditLogJsonContext.Default.ListString);
                             }
                             else
                             {
                                 // Full Mode
-                                var diff = new Dictionary<string, object?>();
+                                var diff = new Dictionary<string, PropertyDiff>();
                                 if (msg.OriginalValues != null)
                                 {
                                     foreach (var kvp in msg.OriginalValues)
                                     {
-                                        diff[kvp.Key] = new { Old = kvp.Value, New = msg.CurrentValues?.GetValueOrDefault(kvp.Key) };
+                                        diff[kvp.Key] = new PropertyDiff { Old = kvp.Value, New = msg.CurrentValues?.GetValueOrDefault(kvp.Key) };
                                     }
                                 }
                                 else if (msg.CurrentValues != null)
                                 {
                                     foreach (var kvp in msg.CurrentValues)
                                     {
-                                        diff[kvp.Key] = new { New = kvp.Value };
+                                        diff[kvp.Key] = new PropertyDiff { New = kvp.Value };
                                     }
                                 }
-                                entry.PropertyChangesJson = JsonSerializer.Serialize(diff);
+                                entry.PropertyChangesJson = JsonSerializer.Serialize(diff, EntityAuditLogJsonContext.CombinedOptions);
                             }
 
                             batch.Add(entry);
@@ -92,5 +92,35 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 }
             }
         }
+    }
+
+    public class PropertyDiff
+    {
+        public object? Old { get; set; }
+        public object? New { get; set; }
+    }
+
+    [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(Dictionary<string, PropertyDiff>))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(PropertyDiff))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(string))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(int))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(long))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(bool))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(DateTime))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(Guid))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(double))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(decimal))]
+    internal partial class EntityAuditLogJsonContext : System.Text.Json.Serialization.JsonSerializerContext
+    {
+        // 组合 Source Generator 与 反射 Fallback
+        // 这样既能让最外层的 Dictionary 和 List 享受 Source Generator 的极致性能，
+        // 又能妥善处理 object? 中可能装箱的、未在上方显式声明的未知类型。
+        public static readonly JsonSerializerOptions CombinedOptions = new JsonSerializerOptions
+        {
+            TypeInfoResolver = System.Text.Json.Serialization.Metadata.JsonTypeInfoResolver.Combine(
+                Default,
+                new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver())
+        };
     }
 }
