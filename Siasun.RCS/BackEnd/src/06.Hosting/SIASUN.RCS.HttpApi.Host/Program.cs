@@ -50,11 +50,23 @@ public class Program
 
             Log.Information("Starting SIASUN.RCS.HttpApi.Host.");
             var builder = WebApplication.CreateBuilder(args);
+
+            // 注册动态日志级别切换器 (单例)
+            var logSwitchRegistry = new Infrastructure.Logging.DynamicLogSwitchRegistry();
+            builder.Services.AddSingleton(logSwitchRegistry);
+
             builder.Host
                 .AddAppSettingsSecretsJson()
                 .UseAutofac()
                 .UseSerilog((context, services, loggerConfiguration) =>
                 {
+                    loggerConfiguration.MinimumLevel.ControlledBy(logSwitchRegistry.GlobalSwitch);
+
+                    foreach (var kvp in logSwitchRegistry.NamespaceSwitches)
+                    {
+                        loggerConfiguration.MinimumLevel.Override(kvp.Key, kvp.Value);
+                    }
+
                     loggerConfiguration
                         .ReadFrom.Configuration(context.Configuration)
                         .ReadFrom.Services(services)
