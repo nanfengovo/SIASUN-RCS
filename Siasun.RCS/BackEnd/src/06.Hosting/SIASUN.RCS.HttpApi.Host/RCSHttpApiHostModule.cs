@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -37,7 +38,6 @@ using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Security.Claims;
 using SIASUN.RCS.Infrastructure.Logging;
 using SIASUN.RCS.Infrastructure.BackgroundJobs;
-using System;
 
 namespace SIASUN.RCS;
 
@@ -267,7 +267,10 @@ public class RCSHttpApiHostModule : AbpModule
 
                     var isBusiness = path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase);
                     var isAdapters = path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
-                    var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase);
+                    var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/system-monitor", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/background-job", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/log-control", StringComparison.OrdinalIgnoreCase);
 
                     return docName switch
                     {
@@ -278,17 +281,30 @@ public class RCSHttpApiHostModule : AbpModule
                         _ => true
                     };
                 });
+                options.OperationFilter<SIASUN.RCS.Swagger.AbpBuiltInApiCommentsFilter>();
                 options.CustomSchemaIds(type => type.FullName);
                 //xml 注释
-                var httpApiXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.HttpApi.xml");
-                if (File.Exists(httpApiXml))
+                try
                 {
-                    options.IncludeXmlComments(httpApiXml, true);
+                    var httpApiXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.HttpApi.xml");
+                    if (File.Exists(httpApiXml))
+                    {
+                        options.IncludeXmlComments(httpApiXml, true);
+                    }
+                    var applicationXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.Application.xml");
+                    if (File.Exists(applicationXml))
+                    {
+                        options.IncludeXmlComments(applicationXml, true);
+                    }
+                    var contractsXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.Application.Contracts.xml");
+                    if (File.Exists(contractsXml))
+                    {
+                        options.IncludeXmlComments(contractsXml, true);
+                    }
                 }
-                var applicationXml = Path.Combine(AppContext.BaseDirectory, "SIASUN.RCS.Application.xml");
-                if (File.Exists(applicationXml))
+                catch (Exception ex)
                 {
-                    options.IncludeXmlComments(applicationXml, true);
+                    Console.WriteLine($"[Swagger] Error loading XML comments: {ex.Message}");
                 }
             });
     }
