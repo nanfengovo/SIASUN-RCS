@@ -2,5 +2,6 @@
   "dotnet.defaultSolution": "SIASUN.RCS.sln",
   "files.encoding": "utf8",
   "files.autoGuessEncoding": false,
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "shareDivSync.realtimeSync": false
 }
