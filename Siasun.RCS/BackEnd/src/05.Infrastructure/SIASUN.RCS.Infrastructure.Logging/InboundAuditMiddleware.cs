@@ -47,6 +47,10 @@ namespace SIASUN.RCS.Infrastructure.Logging
         {
             var path = context.Request.Path.Value ?? string.Empty;
 
+            // 解析端点特性中的对接系统名称 (Peer)
+            var endpoint = context.GetEndpoint();
+            var peerName = endpoint?.Metadata.GetMetadata<AuditPeerAttribute>()?.PeerName ?? "Unknown";
+
             // 1. 基于内存高速规则引擎判定是否需要记录审计日志（白名单驱动 + 黑名单防御），通过后走中间件下一步
             if (!_filterEvaluator.ShouldAudit(path, context.Request.Method, Direction.Inbound))
             {
@@ -112,7 +116,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 {
                     TraceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier,
                     Direction = Direction.Inbound,
-                    Peer = ResolvePeer(path),
+                    Peer = peerName,
                     HttpMethod = methodEnum,
                     Path = path,
                     StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
@@ -131,12 +135,6 @@ namespace SIASUN.RCS.Infrastructure.Logging
         {
             if (string.IsNullOrEmpty(body)) return body;
             return body.Length <= maxLen ? body : body[..maxLen] + " [TRUNCATED]";
-        }
-        private static string ResolvePeer(string path)
-        {
-            if (path.Contains("/xinsong/", StringComparison.OrdinalIgnoreCase) || path.Contains("/tm/", StringComparison.OrdinalIgnoreCase)) return "TM";
-            if (path.Contains("/mes/", StringComparison.OrdinalIgnoreCase)) return "MES";
-            return "Unknown";
         }
     }
 }

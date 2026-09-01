@@ -1,7 +1,5 @@
-using System;
 using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IO;
 using NSubstitute;
@@ -9,7 +7,6 @@ using Shouldly;
 using SIASUN.RCS.Auditing;
 using SIASUN.RCS.Infrastructure.Logging;
 using SIASUN.RCS.Infrastructure.Logging.Filtering;
-using Xunit;
 using HttpMethod = SIASUN.RCS.Auditing.HttpMethod;
 
 namespace SIASUN.RCS.Infrastructure.Tests;
@@ -43,6 +40,11 @@ public class InboundAuditMiddlewareTests
         var requestBytes = Encoding.UTF8.GetBytes(requestJson);
         context.Request.Body = new MemoryStream(requestBytes);
         context.Request.ContentLength = requestBytes.Length;
+
+        // 模拟 Endpoint 上的 AuditPeer 特性
+        var metadata = new Microsoft.AspNetCore.Http.EndpointMetadataCollection(new AuditPeerAttribute("TM"));
+        var endpoint = new Microsoft.AspNetCore.Http.Endpoint(c => Task.CompletedTask, metadata, "TestEndpoint");
+        context.SetEndpoint(endpoint);
 
         RequestDelegate next = async (ctx) =>
         {
@@ -185,19 +187,26 @@ public class InboundAuditMiddlewareTests
     }
 
     /// <summary>
-    /// 【用例 6：对端系统识别矩阵】根据 URL 自动精准识别 Peer 对端系统
+    /// 【用例 6：对端系统识别矩阵】根据 Endpoint 上的特性精准识别 Peer 对端系统，无特性则回退到 "Unknown"
     /// </summary>
     [Theory]
-    [InlineData("/api/v1/xinsong/task_arrive", "TM")]
-    [InlineData("/api/tm/dispatch", "TM")]
-    [InlineData("/api/mes/order_create", "MES")]
-    [InlineData("/api/gateway/unknown_device", "Unknown")]
-    public async Task InvokeAsync_PeerResolutionMatrix_ShouldIdentifyCorrectPeer(string path, string expectedPeer)
+    [InlineData("TM", "TM")]
+    [InlineData("MES", "MES")]
+    [InlineData(null, "Unknown")]
+    public async Task InvokeAsync_PeerResolution_ShouldIdentifyCorrectPeerFromEndpointAttribute(string attributePeerName, string expectedPeer)
     {
         // Arrange
         var context = new DefaultHttpContext();
         context.Request.Method = "POST";
-        context.Request.Path = path;
+        context.Request.Path = "/api/test";
+
+        if (attributePeerName != null)
+        {
+            var metadata = new Microsoft.AspNetCore.Http.EndpointMetadataCollection(new AuditPeerAttribute(attributePeerName));
+            var endpoint = new Microsoft.AspNetCore.Http.Endpoint(c => Task.CompletedTask, metadata, "TestEndpoint");
+            context.SetEndpoint(endpoint);
+        }
+
         RequestDelegate next = (ctx) => Task.CompletedTask;
         var middleware = new InboundAuditMiddleware(next, _streamManager, _channel, _filterEvaluator);
 

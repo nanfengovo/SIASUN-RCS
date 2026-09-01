@@ -121,5 +121,48 @@ public class ApiAuditLogConsumerTests
         // 3. Assert: 任务应立即安全完成
         _channel.Reader.TryRead(out _).ShouldBeFalse();
     }
+
+    /// <summary>
+    /// 【用例 5：双重触发（超时落库）】在低峰期，即便不满 50 条，2 秒时间一到必须强制落库
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_WhenLowTraffic_ShouldFlushAfterTwoSecondsTimeout()
+    {
+        // ----------------- 1. Arrange -----------------
+        var capturedBatches = 0;
+        _ = _store.SaveBatchAsync(Arg.Any<IReadOnlyList<ApiAuditLogEntry>>(), Arg.Any<CancellationToken>())
+            .Returns(info =>
+            {
+                capturedBatches++;
+                return Task.CompletedTask;
+            });
+
+        var consumer = new ApiAuditLogConsumer(_channel, _store, _logger);
+        using var cts = new CancellationTokenSource();
+
+        // ----------------- 2. Act -----------------
+        var consumerTask = consumer.StartAsync(cts.Token);
+
+        // 写入 5 条记录（不满 50 条）
+        for (int i = 0; i < 5; i++)
+        {
+            _channel.TryWrite(new ApiAuditLogEntry { Path = "/api/low-traffic", StatusCode = 200 });
+        }
+
+        // 等待 1 秒（未达到 2 秒超时阈值）
+        await Task.Delay(1000);
+        // 断言：此时绝对不应该落库
+        capturedBatches.ShouldBe(0);
+
+        // 再等待 1.5 秒（总共 2.5 秒，必定超过 2 秒超时）
+        await Task.Delay(1500);
+
+        // ----------------- 3. Assert -----------------
+        // 断言：已经由 2 秒超时机制触发了批量落库
+        capturedBatches.ShouldBe(1);
+
+        cts.Cancel();
+        await consumer.StopAsync(CancellationToken.None);
+    }
 }
 

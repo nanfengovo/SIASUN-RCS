@@ -29,19 +29,44 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var batch = new List<ApiAuditLogEntry>(100);
+            var batch = new List<ApiAuditLogEntry>(50);
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
+                    // 等待直到有数据可用（无超时限制，避免无意义的空转）
                     if (await _channel.Reader.WaitToReadAsync(stoppingToken))
                     {
-                        while (batch.Count < 50 && _channel.Reader.TryRead(out var entry))
+                        // 一旦有第一条数据，开启 2 秒的攒批窗口
+                        using var batchCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                        batchCts.CancelAfter(TimeSpan.FromSeconds(2));
+
+                        try
                         {
-                            batch.Add(entry);
+                            while (batch.Count < 50 && !batchCts.IsCancellationRequested)
+                            {
+                                // 尝试同步读取，最多读取到 50 条
+                                while (batch.Count < 50 && _channel.Reader.TryRead(out var entry))
+                                {
+                                    batch.Add(entry);
+                                }
+
+                                if (batch.Count >= 50)
+                                {
+                                    break; // 满 50 条，跳出攒批窗口
+                                }
+
+                                // 如果当前管道为空但没满 50 条，继续等待新数据（受 2 秒超时限制）
+                                await _channel.Reader.WaitToReadAsync(batchCts.Token);
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // 2 秒超时，正常吞下异常，继续往下执行落库
                         }
 
+                        // 满 50 条或满 2 秒，执行批量落库
                         if (batch.Count > 0)
                         {
                             await _store.SaveBatchAsync(batch, stoppingToken);
@@ -56,6 +81,8 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "异步批量持久化报文日志发生异常");
+                    // 发生异常时清空批次，避免一直重复引发错误
+                    batch.Clear();
                     await Task.Delay(1000, stoppingToken);
                 }
             }
