@@ -21,7 +21,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
             // 注册报文Channel(单例)
             context.Services.AddSingleton<ApiAuditLogChannel>();
-            
+
             // 注册实体日志 Channel(单例)
             context.Services.AddSingleton<SIASUN.RCS.Auditing.IEntityAuditLogChannel, EntityAuditLogChannel>();
 

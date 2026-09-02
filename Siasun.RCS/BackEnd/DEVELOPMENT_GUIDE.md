@@ -1,4 +1,4 @@
-# SIASUN RCS 3.0 后端开发与架构配置指南
+# SIASUN RCS 后端开发与架构配置指南
 
 本文档是 RCS 后端项目的核心开发指南。随着项目的演进，所有涉及核心架构的变动、中间件拦截、第三方组件集成以及各类核心配置的最佳实践，都会持续补充到此文档中。
 
@@ -110,8 +110,78 @@ app.UseAbpSwaggerUI(options =>
 ### 1.3 实体操作审计（Entity Tracker）—— 精确追踪聚合根数据变更
 **类名**：`EntityAuditInterceptor` 和 `EntityAuditRuleEvaluator`
 **架构详解**：请参考项目根目录的详尽设计文档：[Architecture_AuditLog_Design_And_Optimization.md](docs/architecture/Architecture_AuditLog_Design_And_Optimization.md)（注：文档保存在 AI 脑区，也可直接查阅代码设计意图）
-**作用**：基于 EF Core 的 `SaveChangesInterceptor`，追踪重要业务实体（如 `AgvTask`）属性的具体变动（Old/New Value），用于故障追溯。
+**作用**：基于 EF Core 的 `SaveChangesInterceptor`，追踪重要业务实体（如 `AgvTask`）属性的具体变动（Old/New Value），回答“数据怎么变的”，主要给研发排障使用。
 **设计亮点**：
 - **异步解耦**：采用 `Channel<EntityAuditLogMessage>` 将高频的内存对象序列化与 SQLite I/O 持久化操作从主业务线程完全剥离。
 - **极致轻量**：采用按月切片（Sharding）的 SQLite WAL 模式（`api_audit_log_yyyyMM.db`），解决工控机磁盘容量与并发锁问题。无脑基于 `File.Delete` 的清理任务做到 O 锁释放。
 - **富聚合与热更新**：通过 Domain Event 实时刷新 `EntityAuditRuleEvaluator` 的前缀/后缀通配规则树，实现运行时动态无缝调级（Skip -> Summary -> Full）。
+
+---
+
+## 4. 业务操作日志 (Business Operation Log) 最佳实践
+
+在 RCS 现场，我们经常需要排查类似问题：“是谁在什么时候点击了强制结束任务？系统为什么没有执行？”。这种场景下，底层的 API 审计和实体变更审计都无法直观回答人的业务意图。我们需要**带有业务语义、只追加的业务操作日志**。
+
+**核心机制**：
+- **不阻塞主业务**：内部基于 `Channel<OperationLog>` 异步机制，业务调用写入操作后毫秒级返回。
+- **扯皮铁证**：后台落盘的 `OperationLogPersistenceWorker` 使用了独立的 `IServiceScope` 和 `RequiresNew` 的独立事务。**这意味着即便主业务抛出异常导致数据库回滚，失败的操作尝试依然会被成功记录到数据库中！**
+
+### 4.1 如何在业务代码中记录操作日志？
+
+在您的应用服务（如 `AppService`）或领域服务中，请按照以下规范注入并使用 `IOperationLogRecorder`：
+
+```csharp
+public class TaskAppService : ApplicationService
+{
+    private readonly ITaskDomainService _taskDomainService;
+    private readonly IOperationLogRecorder _operationLog; // 1. 注入操作日志记录器
+
+    public TaskAppService(ITaskDomainService taskDomainService, IOperationLogRecorder operationLog)
+    {
+        _taskDomainService = taskDomainService;
+        _operationLog = operationLog;
+    }
+
+    public async Task ForceCancelAsync(string taskNo, string reason)
+    {
+        try
+        {
+            // 2. 执行核心领域逻辑 (如果状态不对，领域层会抛出 BusinessException)
+            await _taskDomainService.ForceCancelTaskAsync(taskNo, reason);
+
+            // 3. 记录成功操作：必须在业务代码无异常完成后调用
+            _operationLog.RecordSuccess(
+                module: "任务管控", 
+                action: "强制结束", 
+                targetType: "Task", 
+                targetKey: taskNo, 
+                description: $"人工强制结束任务，输入原因：{reason}"
+            );
+        }
+        catch (Exception ex) 
+        {
+            // 4. 记录失败尝试：拦截异常，记录失败日志
+            _operationLog.RecordFailure(
+                module: "任务管控", 
+                action: "强制结束", 
+                targetType: "Task", 
+                targetKey: taskNo, 
+                description: $"试图人工强制结束任务，输入原因：{reason}",
+                errorMessage: ex.Message 
+            );
+
+            // 5. 必须再次抛出异常！
+            // 这样能确保前端收到错误提示，且主业务的事务能够正确回滚，但由于“逃生舱”设计，我们的失败日志依然会落盘。
+            throw; 
+        }
+    }
+}
+```
+
+### 4.2 业务操作日志字段规范 (5W1H)
+使用 `RecordSuccess` 和 `RecordFailure` 时，请务必遵守以下填写规范，以方便运维与实施人员查阅：
+- **Module (模块)**: 例如 `任务管控`，`车辆管控`。用于前端左侧树形筛选。
+- **Action (动作)**: 例如 `强制结束`，`修改限速`，`车辆复位`。
+- **TargetType (目标类型)**: 推荐使用 `Task`, `Vehicle`, `Station`, `Config` 等固定枚举名。
+- **TargetKey (目标标识)**: 必须是业务稳定的对外唯一标识（如任务号 `T-20260831-001` 或车号 `AGV-05`），**绝对不能**填内部的 Guid（除非单号本身就是 Guid）。前端查询全靠该字段精准过滤。
+- **Description (人类可读摘要)**: 请拼装成一句完整的话题，包含核心上下文（如输入参数或原因），例如：`班长张三在 PDA 上强制结束了任务 T-001，原因：通道被托盘堵死。`
