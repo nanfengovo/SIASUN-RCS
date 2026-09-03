@@ -94,12 +94,14 @@ namespace SIASUN.RCS.Infrastructure.Logging
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class PropertyDiff
     {
         public object? Old { get; set; }
         public object? New { get; set; }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
     [System.Text.Json.Serialization.JsonSerializable(typeof(Dictionary<string, PropertyDiff>))]
     [System.Text.Json.Serialization.JsonSerializable(typeof(PropertyDiff))]

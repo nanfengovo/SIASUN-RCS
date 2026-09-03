@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -13,12 +12,12 @@ public class RCSDbContextFactory : IDesignTimeDbContextFactory<RCSDbContext>
     public RCSDbContext CreateDbContext(string[] args)
     {
         var configuration = BuildConfiguration();
-        
+
         RCSEfCoreEntityExtensionMappings.Configure();
 
         var builder = new DbContextOptionsBuilder<RCSDbContext>()
             .UseSqlServer(configuration.GetConnectionString("Default"));
-        
+
         return new RCSDbContext(builder.Options);
     }
 

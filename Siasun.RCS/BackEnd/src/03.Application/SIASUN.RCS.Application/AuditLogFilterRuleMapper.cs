@@ -4,6 +4,7 @@ using SIASUN.RCS.Auditing;
 
 namespace SIASUN.RCS;
 
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class AuditLogFilterRuleMapper : MapperBase<AuditLogFilterRule, AuditLogFilterRuleDto>
 {
@@ -11,6 +12,7 @@ public partial class AuditLogFilterRuleMapper : MapperBase<AuditLogFilterRule, A
     public override partial void Map(AuditLogFilterRule source, AuditLogFilterRuleDto destination);
 }
 
+[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public partial class EntityAuditRuleMapper : MapperBase<EntityAuditRule, EntityAuditRuleDto>
 {

@@ -282,6 +282,7 @@ public class RCSHttpApiHostModule : AbpModule
                     };
                 });
                 options.OperationFilter<SIASUN.RCS.Swagger.AbpBuiltInApiCommentsFilter>();
+                options.DocumentFilter<SIASUN.RCS.Swagger.SwaggerTagDescriptionFilter>();
                 options.CustomSchemaIds(type => type.FullName);
                 //xml 注释
                 try

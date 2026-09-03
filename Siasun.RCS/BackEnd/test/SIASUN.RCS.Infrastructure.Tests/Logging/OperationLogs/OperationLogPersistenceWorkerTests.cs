@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +8,6 @@ using SIASUN.RCS.Logs.OperatorLog;
 using SIASUN.RCS.Logs.OperatorLogs;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Uow;
-using Xunit;
 
 namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
 {
@@ -33,7 +31,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
             scope.ServiceProvider.Returns(serviceProvider);
             serviceProvider.GetService(typeof(IUnitOfWorkManager)).Returns(uowManager);
             serviceProvider.GetService(typeof(IRepository<OperationLog, Guid>)).Returns(repository);
-            uowManager.Begin(Arg.Any<AbpUnitOfWorkOptions>()).Returns(uow);
+            uowManager.Begin(Arg.Any<AbpUnitOfWorkOptions>(), Arg.Any<bool>()).Returns(uow);
 
             var worker = new OperationLogPersistenceWorker(channelManager, scopeFactory, logger);
 
