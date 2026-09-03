@@ -271,6 +271,10 @@ public class RCSHttpApiHostModule : AbpModule
                                  || path.StartsWith("api/app/system-monitor", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/background-job", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/log-control", StringComparison.OrdinalIgnoreCase);
+                                 || path.StartsWith("api/app/log-control", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/entity-audit-rule", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/audit-log-filter-rule", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/frontend-audit", StringComparison.OrdinalIgnoreCase);
 
                     return docName switch
                     {

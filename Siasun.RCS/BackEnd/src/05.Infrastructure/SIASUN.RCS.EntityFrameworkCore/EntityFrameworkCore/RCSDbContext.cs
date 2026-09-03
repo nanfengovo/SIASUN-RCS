@@ -15,6 +15,7 @@ using Volo.Abp.OpenIddict.EntityFrameworkCore;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
 using SIASUN.RCS.Auditing;
+using SIASUN.RCS.Logs.OperatorLogs;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
@@ -29,6 +30,7 @@ public class RCSDbContext :
     public DbSet<AuditLogFilterRule> AuditLogFilterRules { get; set; } = null!;
     public DbSet<EntityAuditRule> EntityAuditRules { get; set; } = null!;
     public DbSet<SIASUN.RCS.Monitor.SystemEventLog> SystemEventLogs { get; set; } = null!;
+    public DbSet<OperationLog> OperationLogs { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -101,6 +103,26 @@ public class RCSDbContext :
             b.Property(x => x.Message).IsRequired().HasMaxLength(512);
             b.HasIndex(x => x.CreationTime);
             b.HasIndex(x => x.EventCategory);
+        });
+
+        builder.Entity<OperationLog>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "OperationLogs", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Module).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Action).IsRequired().HasMaxLength(64);
+            b.Property(x => x.TargetType).HasMaxLength(64);
+            b.Property(x => x.TargetId).HasMaxLength(128);
+            b.Property(x => x.UserName).HasMaxLength(128);
+            b.Property(x => x.ClientIp).HasMaxLength(64);
+            b.Property(x => x.CorrelationId).HasMaxLength(64);
+            b.Property(x => x.Description).HasMaxLength(1024);
+            b.Property(x => x.ErrorMessage).HasMaxLength(2048);
+
+            b.HasIndex(x => x.CreationTime);
+            b.HasIndex(x => x.CorrelationId);
+            b.HasIndex(x => new { x.TargetType, x.TargetId });
+            b.HasIndex(x => new { x.Module, x.Action });
         });
     }
 }
