@@ -270,11 +270,12 @@ public class RCSHttpApiHostModule : AbpModule
                     var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/system-monitor", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/background-job", StringComparison.OrdinalIgnoreCase)
-                                 || path.StartsWith("api/app/log-control", StringComparison.OrdinalIgnoreCase);
                                  || path.StartsWith("api/app/log-control", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/entity-audit-rule", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/audit-log-filter-rule", StringComparison.OrdinalIgnoreCase)
-                                 || path.StartsWith("api/app/frontend-audit", StringComparison.OrdinalIgnoreCase);
+                                 || path.StartsWith("api/app/frontend-audit", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/flight-pack", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/operation-log", StringComparison.OrdinalIgnoreCase);
 
                     return docName switch
                     {
@@ -362,6 +363,7 @@ public class RCSHttpApiHostModule : AbpModule
         }
 
         app.UseRouting();
+        app.UseStaticFiles();
         app.MapAbpStaticAssets();
         app.UseAbpStudioLink();
         app.UseAbpSecurityHeaders();
@@ -405,5 +407,18 @@ public class RCSHttpApiHostModule : AbpModule
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
+
+        var signalROptions = context.ServiceProvider.GetService<Microsoft.Extensions.Options.IOptions<SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR.SignalRDiagnosticsOptions>>()?.Value;
+        if (signalROptions?.IsEnabled == true)
+        {
+            app.UseEndpoints(endpoints =>
+            {
+                var hub = endpoints.MapHub<SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR.DiagnosticHub>(signalROptions.HubEndpoint);
+                if (signalROptions.AllowAnonymousForLocalNetwork)
+                {
+                    hub.AllowAnonymous();
+                }
+            });
+        }
     }
 }

@@ -1,24 +1,12 @@
-# RCS 3.0 Standard Architecture & Coding Guidelines
 # SIASUN RCS 通用架构规范与 AI Agent 编码守则
 > **Universal Architecture & Coding Guidelines for AI Agents**
 
-You are developing the SIASUN RCS 3.0 standard product, which must gracefully adapt to historical project complexities (NXP ERACK, NXP Tianjin Molding, TXC Crystal) and future deployments. 
 所有在此代码库工作的 AI Agent，在理解需求、设计方案与编写/修改代码前，**必须严格遵守**以下规范。
 
-Always adhere to the following 7 core architectural constraints:
 ---
 
-## 1. Workflow Engine over State Machines
-- **DO NOT** attempt to build a generic DAG engine or a giant unified state machine (like Molding's 22-state switch).
-- **DO** use the TXC-style `TaskWorkflow` stepping engine. 
-- The domain model (`AgvTask`) should only expose a 5-state coarse lifecycle (`Pending`, `Running`, `Succeeded`, `Failed`, `Canceled`). 
-- Fine-grained execution is strictly driven by `StepIndex`, `WaitingEvent`, and `ActiveLeg`.
 ## 一、 系统定位与命名约束 (System Identity & Philosophy)
 
-## 2. OptionCode Schema-Driven Encoding
-- **DO NOT** use hardcoded bit-packing (like ERACK's `TaskCode1/2`).
-- **DO** use the TXC-style Schema-driven approach (`OptionCodeSchema`, `Assembler`, `Encoder`, `Decoder`).
-- Ensure it supports reverse-decoding for frontend displays and multiple schema versions (`erack.v1`, `molding.v1`, etc.).
 1. **系统正式名称**：**SIASUN RCS**（新松移动机器人调度控制系统 / Robot Control System）。
 2. **严禁版本代号固化**：**严禁称呼本系统为“RCS 3.0”或任何特定版本代号**。本系统是面向半导体洁净室（晶圆/FOUP）、高精密制造与智能仓储场景的标准产品化平台，吸收了 NXP ERACK、NXP 天津 Molding、TXC 台湾晶技、Sandisk Murata 等现场经验。
 3. **微内核与插件化哲学**：
@@ -26,19 +14,10 @@ Always adhere to the following 7 core architectural constraints:
    - 20% 现场差异插件化（立库、风淋门/传递窗、机台设备、MES/WMS 均通过独立 Adapter 接入，严禁侵入核心内核）。
 4. **严禁硬编码项目分支**：绝对禁止在调度主链路中编写类似 `if (customer == "NXP")` 的现场特异性硬编码，所有现场特异逻辑必须抽象为策略接口、配置化 Schema 或独立插件模块。
 
-## 3. TM Callback Tracking (`TaskSerialRegistry`)
-- **DO NOT** use string replacement hacks (e.g., `.Replace("0_fetch", "")`) to find internal tasks from TM callbacks.
-- **DO** use a dedicated `TaskSerialRegistry` to map TM sequence numbers and `AgvSerial` to internal RCS tasks, handling multi-leg scenarios (Fetch/Put1/Put2) safely.
 ---
 
-## 4. Hardware/PLC Layer as Optional Plugins
-- **DO NOT** build PLC S7/Modbus polling directly into the core platform flow.
-- **DO** abstract hardware interactions behind `IHardwareGate` (Ports and Adapters). PLC logic is highly project-specific (e.g., twin-arm sync, slot management) and must remain an optional plug-in.
 ## 二、 核心调度架构 7 大铁律 (Core Architectural Constraints)
 
-## 5. Inbound Ports and Adapters
-- **DO NOT** force a single unified Inbound API for upstream systems.
-- **DO** use the Ports and Adapters pattern (`IInboundPort`, `IOutboundAdapter`). Upstream systems vary drastically (REST for AMA/MES, WCF/SOAP for Mica WMS) and have different responsibilities.
 ### 1. 声明式工作流驱动，禁止大状态机 (Workflow Engine over State Machines)
 - **DO NOT**：严禁构建通用的巨型 DAG 图引擎，严禁编写上千行的巨型 `switch-case` 状态机（如历史遗留的 22 状态分支）。
 - **DO**：采用轻量步进式 `TaskWorkflow` 引擎驱动任务执行。
@@ -50,17 +29,11 @@ Always adhere to the following 7 core architectural constraints:
   - `Canceled`（已取消）
 - 任务内部的细粒度推进严格由 `StepIndex`（步骤步进）、`WaitingEvent`（异步信号/心跳唤醒）、`ActiveLeg`（多程段执行）驱动。
 
-## 6. Batch & Multi-AGV Orchestration
-- The domain model must anticipate Batch Management and Multi-Vehicle orchestration.
-- Scenarios like NXP Molding require splitting one batch into multiple tasks and coordinating their dispatch logic.
 ### 2. Schema 驱动的 OptionCode 编解码 (OptionCode Schema-Driven Encoding)
 - **DO NOT**：严禁使用脆弱的位运算硬编码（如 ERACK 的 `TaskCode1/2`）。
 - **DO**：采用 Schema 驱动的流水线架构（`OptionCodeSchema`、`Assembler`、`Encoder`、`Decoder`）。
 - 必须支持版本化 Schema（如 `erack.v1`、`molding.v1`、`txc.v1` 等），并支持前端大屏与运维看板的双向反向解析展示。
 
-## 7. Domain Events for Side Effects
-- **DO NOT** use procedural method calls for cross-domain side effects (e.g., calling MES API directly from task completion).
-- **DO** emit local domain events (e.g., `TaskLifecycleEndedEvent`) and handle them via Event Handlers to ensure loose coupling.
 ### 3. TM 回调映射统一采用注册表 (TaskSerialRegistry)
 - **DO NOT**：严禁使用字符串拼接或正则替换 hack（如 `.Replace("0_fetch", "")`）反查内部任务。
 - **DO**：通过专用注册表 `TaskSerialRegistry` 维护底层 TM 报文序列号、`AgvSerial` 与平台内部任务的双向映射，安全处理多程段（Fetch / Put / 中间停靠点）的连续流转。
@@ -146,3 +119,4 @@ Always adhere to the following 7 core architectural constraints:
   dotnet test SIASUN.RCS.sln
   ```
   **必须保证 100% 测试通过（0 失败）、0 编译错误、0 严重编译警告。**
+

@@ -23,6 +23,8 @@ namespace SIASUN.RCS.Swagger
                 { "AuditLogFilterRule", "接口审计日志过滤规则" },
                 { "EntityAuditRule", "实体变更审计规则" },
                 { "FrontendAudit", "前端操作审计打点" },
+                { "OperationLog", "调度员操作与系统自审计日志" },
+                { "FlightPack", "黑匣子全时序事故取证排障包" },
                 { "Features", "系统特性与租户开关" },
                 { "Permissions", "角色权限树分配" },
                 { "User", "用户身份与账号管理" },
@@ -71,7 +73,7 @@ namespace SIASUN.RCS.Swagger
             }
 
             // 2. 清理掉当前文档中没有任何接口引用的孤儿 Tag（避免出现空分组折叠栏）
-            var orphanedTags = swaggerDoc.Tags.Where(t => !activeTagNames.Contains(t.Name)).ToList();
+            var orphanedTags = swaggerDoc.Tags.Where(t => string.IsNullOrEmpty(t.Name) || !activeTagNames.Contains(t.Name)).ToList();
             foreach (var orphan in orphanedTags)
             {
                 swaggerDoc.Tags.Remove(orphan);

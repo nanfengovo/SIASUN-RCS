@@ -29,5 +29,38 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
             await dbContext.ApiAuditLogs.AddRangeAsync(entries, ct);
             await dbContext.SaveChangesAsync(ct);
         }
+
+        public async Task<IReadOnlyList<ApiAuditLogEntry>> GetListAsync(DateTime startTime, DateTime endTime, string? keyword = null, CancellationToken ct = default)
+        {
+            var result = new List<ApiAuditLogEntry>();
+            var currentMonth = new DateTime(startTime.Year, startTime.Month, 1);
+            var endMonth = new DateTime(endTime.Year, endTime.Month, 1);
+
+            while (currentMonth <= endMonth)
+            {
+                try
+                {
+                    await using var dbContext = await _dbContextFactory.CreateAsync(currentMonth);
+                    var query = dbContext.ApiAuditLogs
+                        .Where(x => x.CreationTime >= startTime && x.CreationTime <= endTime);
+
+                    if (!string.IsNullOrEmpty(keyword))
+                    {
+                        query = query.Where(x => x.TraceId == keyword || x.Path.Contains(keyword));
+                    }
+
+                    var entries = await query.OrderBy(x => x.CreationTime).ToListAsync(ct);
+                    result.AddRange(entries);
+                }
+                catch
+                {
+                    // 忽略不存在的月度数据库
+                }
+
+                currentMonth = currentMonth.AddMonths(1);
+            }
+
+            return result.OrderBy(x => x.CreationTime).ToList();
+        }
     }
 }

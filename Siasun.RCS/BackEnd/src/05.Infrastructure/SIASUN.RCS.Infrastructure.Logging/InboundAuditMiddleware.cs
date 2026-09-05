@@ -30,17 +30,20 @@ namespace SIASUN.RCS.Infrastructure.Logging
         private readonly ApiAuditLogChannel _channel;
 
         private readonly IAuditLogFilterEvaluator _filterEvaluator;
+        private readonly Diagnostics.SignalR.IDiagnosticLiveStreamBroker? _liveStreamBroker;
 
         public InboundAuditMiddleware(
             RequestDelegate next,
             RecyclableMemoryStreamManager streamManager,
             ApiAuditLogChannel channel,
-            IAuditLogFilterEvaluator filterEvaluator)
+            IAuditLogFilterEvaluator filterEvaluator,
+            Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null)
         {
             _next = next;
             _streamManager = streamManager;
             _channel = channel;
             _filterEvaluator = filterEvaluator;
+            _liveStreamBroker = liveStreamBroker;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -127,6 +130,22 @@ namespace SIASUN.RCS.Infrastructure.Logging
                     ClientName = context.User.Identity?.Name,
                     Exception = caughtException?.Message
                 });
+
+                if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
+                {
+                    var isErr = context.Response.StatusCode >= 500 || caughtException != null;
+                    var isWarn = context.Response.StatusCode >= 400 && context.Response.StatusCode < 500;
+                    _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
+                    {
+                        Timestamp = DateTime.UtcNow,
+                        Track = "API",
+                        Level = isErr ? "Error" : (isWarn ? "Warning" : "Information"),
+                        Source = string.IsNullOrEmpty(peerName) ? "API" : peerName,
+                        Title = $"{context.Request.Method} {context.Request.Path} ({context.Response.StatusCode})",
+                        Summary = $"耗时: {sw.ElapsedMilliseconds}ms, 客户端: {context.Connection.RemoteIpAddress}",
+                        TraceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier
+                    });
+                }
             }
 
         }

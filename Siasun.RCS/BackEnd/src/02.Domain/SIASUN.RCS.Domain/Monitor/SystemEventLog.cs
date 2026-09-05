@@ -32,13 +32,17 @@ namespace SIASUN.RCS.Monitor
         {
         }
 
-        public SystemEventLog(Guid id, string eventCategory, string level, string message, string actionDetails)
+        public SystemEventLog(Guid id, string eventCategory, string level, string message, string actionDetails, DateTime? creationTime = null)
             : base(id)
         {
             EventCategory = eventCategory;
             Level = level;
             Message = message;
             ActionDetails = actionDetails;
+            if (creationTime.HasValue)
+            {
+                CreationTime = creationTime.Value;
+            }
         }
     }
 }

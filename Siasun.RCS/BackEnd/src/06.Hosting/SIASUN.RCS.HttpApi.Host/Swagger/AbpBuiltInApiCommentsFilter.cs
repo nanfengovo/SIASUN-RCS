@@ -168,6 +168,31 @@ namespace SIASUN.RCS.Swagger
             {
                 if (path.EndsWith("system-resources") && method == "GET") { operation.Summary = "获取系统资源全局监控视图模型"; operation.Description = "前端大屏直接拉取此接口获取当前进程内存占用状态、日志磁盘水位与容量百分比，用于直接在前端仪表盘上渲染进度条。"; }
             }
+
+            // --- 调度员操作日志 (Operation Log) ---
+            else if (path.StartsWith("api/app/operation-log"))
+            {
+                if (method == "GET" && path.Contains("{id}"))
+                {
+                    operation.Summary = "获取操作审计日志详情";
+                    operation.Description = "根据唯一标识获取单条操作审计日志的详细变更快照、操作人及执行上下文。";
+                }
+                else if (method == "GET")
+                {
+                    operation.Summary = "分页查询操作审计日志";
+                    operation.Description = "多条件筛选调度员手工干预、系统自动触发及外部交互的全量操作历史记录。";
+                }
+            }
+
+            // --- 事故排障黑匣子 (Flight Pack) ---
+            else if (path.StartsWith("api/app/flight-pack"))
+            {
+                if (path.EndsWith("export") && method == "POST")
+                {
+                    operation.Summary = "导出事故排障黑匣子压缩包 (.rcspack)";
+                    operation.Description = "根据任务号或车辆编号锚点，汇聚关联 API 报文、操作轨迹与系统异常三源证据，生成离线排障飞行数据包，并可选用 AI 深度推理分析。";
+                }
+            }
         }
     }
 }
