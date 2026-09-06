@@ -23,28 +23,51 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
         private readonly IConfiguration _configuration;
         private readonly IUnitOfWorkManager _unitOfWorkManager;
         private readonly ILogger<DatabaseLogRetentionJob> _logger;
+        private readonly SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? _diagnosticLock;
 
         /// <summary>
-        /// 构造函数注入操作与事件仓储
+        /// 构造函数注入操作与事件仓储及分布式诊断互斥锁
         /// </summary>
         public DatabaseLogRetentionJob(
             IRepository<OperationLog, Guid> operationLogRepository,
             IRepository<SystemEventLog, Guid> systemEventLogRepository,
             IConfiguration configuration,
             IUnitOfWorkManager unitOfWorkManager,
-            ILogger<DatabaseLogRetentionJob> logger)
+            ILogger<DatabaseLogRetentionJob> logger,
+            SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? diagnosticLock = null)
         {
             _operationLogRepository = operationLogRepository;
             _systemEventLogRepository = systemEventLogRepository;
             _configuration = configuration;
             _unitOfWorkManager = unitOfWorkManager;
             _logger = logger;
+            _diagnosticLock = diagnosticLock;
         }
 
         /// <summary>
         /// 执行主库历史日志清理工作流
         /// </summary>
         public async Task Execute(IJobExecutionContext context)
+        {
+            using var traceScope = SIASUN.RCS.Diagnostics.RcsTraceContext.SetScoped($"JOB-RETENTION-{Guid.NewGuid():N}");
+
+            if (_diagnosticLock != null)
+            {
+                using var lockHandle = await _diagnosticLock.TryAcquireLockAsync("job:database_retention", TimeSpan.FromSeconds(5), context.CancellationToken);
+                if (lockHandle == null)
+                {
+                    _logger.LogInformation("另一个实例正在执行主数据库日志保留清理作业，本次调度跳过");
+                    return;
+                }
+
+                await ExecuteCoreAsync(context);
+                return;
+            }
+
+            await ExecuteCoreAsync(context);
+        }
+
+        private async Task ExecuteCoreAsync(IJobExecutionContext context)
         {
             var retainDays = _configuration.GetValue<int>("DatabaseLogRetention:RetainDays", 90);
             if (retainDays <= 0)

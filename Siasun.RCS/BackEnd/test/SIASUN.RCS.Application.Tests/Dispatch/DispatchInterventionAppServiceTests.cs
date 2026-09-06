@@ -12,6 +12,7 @@ using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Tasks;
 using SIASUN.RCS.Vehicles;
 using Volo.Abp;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 using Xunit;
 
@@ -20,17 +21,21 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
     /// <summary>
     /// 调度员人工干预应用服务单元测试
     /// 验证任务取消、强制完结、人工指派车辆、车辆复位等关键干预操作均 100% 记录责任审计
-    /// 严格验证实体不存在时记录失败审计并抛出异常，绝不捏造状态
+    /// 严格验证实体不存在时记录失败审计（BeforeState=null, AfterState=null）并抛出 EntityNotFoundException，绝不捏造状态
     /// </summary>
     public class DispatchInterventionAppServiceTests
     {
         private readonly IOperationLogRecorder _opRecorder;
-        private readonly DispatchInterventionAppService _standaloneAppService;
+        private readonly IRepository<AgvTask, Guid> _taskRepo;
+        private readonly IRepository<AgvVehicle, Guid> _vehicleRepo;
+        private readonly DispatchInterventionAppService _appService;
 
         public DispatchInterventionAppServiceTests()
         {
             _opRecorder = Substitute.For<IOperationLogRecorder>();
-            _standaloneAppService = new DispatchInterventionAppService(_opRecorder);
+            _taskRepo = Substitute.For<IRepository<AgvTask, Guid>>();
+            _vehicleRepo = Substitute.For<IRepository<AgvVehicle, Guid>>();
+            _appService = new DispatchInterventionAppService(_opRecorder, _taskRepo, _vehicleRepo);
         }
 
         [Fact]
@@ -44,14 +49,21 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
 
             await Should.ThrowAsync<UserFriendlyException>(async () =>
             {
-                await _standaloneAppService.CancelTaskAsync(input);
+                await _appService.CancelTaskAsync(input);
             });
         }
 
         [Fact]
-        public async Task CancelTaskAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
+        public async Task CancelTaskAsync_WhenTaskExists_Should_MutateEntity_And_RecordOperationLog()
         {
             // Arrange
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-1001", "ST-01", "ST-02");
+            task.Start(Guid.NewGuid(), "AGV-01", "TRACE-01");
+
+            _taskRepo.FindAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(task));
+
             var input = new CancelTaskInput
             {
                 TaskId = "TASK-1001",
@@ -60,13 +72,16 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _standaloneAppService.CancelTaskAsync(input);
+            var result = await _appService.CancelTaskAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
             result.TargetType.ShouldBe("Task");
             result.TargetId.ShouldBe("TASK-1001");
             result.CurrentState.ShouldBe("Canceled");
+            task.Status.ShouldBe(AgvTaskStatus.Canceled);
+
+            await _taskRepo.Received(1).UpdateAsync(task, autoSave: true);
 
             _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
                 ctx.Module == "Dispatch" &&
@@ -81,14 +96,13 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
         }
 
         [Fact]
-        public async Task CancelTaskAsync_WhenTaskNotFoundInRepo_Should_RecordFailure_And_ThrowException()
+        public async Task CancelTaskAsync_WhenTaskNotFoundInRepo_Should_RecordFailure_And_ThrowEntityNotFound()
         {
             // Arrange
-            var taskRepo = Substitute.For<IRepository<AgvTask, Guid>>();
-            taskRepo.FindAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            _taskRepo.FindAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<AgvTask?>(null));
-
-            var appService = new DispatchInterventionAppService(_opRecorder, taskRepo);
+            _taskRepo.FirstOrDefaultAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(null));
 
             var input = new CancelTaskInput
             {
@@ -96,28 +110,31 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 Reason = "任务超时人工取消"
             };
 
-            // Act & Assert
-            var ex = await Should.ThrowAsync<UserFriendlyException>(async () =>
+            // Act & Assert: 必须抛出 EntityNotFoundException
+            var ex = await Should.ThrowAsync<EntityNotFoundException>(async () =>
             {
-                await appService.CancelTaskAsync(input);
+                await _appService.CancelTaskAsync(input);
             });
-            ex.Message.ShouldContain("未找到任务");
+            ex.EntityType.ShouldBe(typeof(AgvTask));
 
+            // 严格对齐 L3：实体不存在时，BeforeState 与 AfterState 必须为 null，绝不捏造 "NonExistent" 伪状态
             _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
                 ctx.Module == "Dispatch" &&
                 ctx.Action == "CancelTask" &&
                 ctx.TargetId == "NON-EXISTENT-TASK" &&
-                ctx.BeforeState == "NonExistent" &&
-                ctx.AfterState == "NonExistent"
+                ctx.BeforeState == null &&
+                ctx.AfterState == null
             ), OperationLogStatus.Failed, Arg.Any<string>());
         }
 
         [Fact]
-        public async Task ForceEndTaskAsync_WhenTaskNotFoundInRepo_Should_RecordFailure_And_ThrowException()
+        public async Task ForceEndTaskAsync_WhenTaskNotFoundInRepo_Should_RecordFailure_And_ThrowEntityNotFound()
         {
             // Arrange
-            var taskRepo = Substitute.For<IRepository<AgvTask, Guid>>();
-            var appService = new DispatchInterventionAppService(_opRecorder, taskRepo);
+            _taskRepo.FindAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(null));
+            _taskRepo.FirstOrDefaultAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(null));
 
             var input = new ForceEndTaskInput
             {
@@ -126,48 +143,30 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act & Assert
-            var ex = await Should.ThrowAsync<UserFriendlyException>(async () =>
+            var ex = await Should.ThrowAsync<EntityNotFoundException>(async () =>
             {
-                await appService.ForceEndTaskAsync(input);
+                await _appService.ForceEndTaskAsync(input);
             });
-            ex.Message.ShouldContain("未找到任务");
+            ex.EntityType.ShouldBe(typeof(AgvTask));
 
             _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
                 ctx.Action == "ForceEndTask" &&
-                ctx.BeforeState == "NonExistent"
+                ctx.BeforeState == null &&
+                ctx.AfterState == null
             ), OperationLogStatus.Failed, Arg.Any<string>());
         }
 
         [Fact]
-        public async Task ResetVehicleAsync_WhenVehicleNotFoundInRepo_Should_RecordFailure_And_ThrowException()
+        public async Task ForceEndTaskAsync_WhenTaskExists_Should_Succeed_And_RecordOperationLog()
         {
             // Arrange
-            var vehicleRepo = Substitute.For<IRepository<AgvVehicle, Guid>>();
-            var appService = new DispatchInterventionAppService(_opRecorder, vehicleRepository: vehicleRepo);
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-1002", "ST-01", "ST-02");
+            task.Start(Guid.NewGuid(), "AGV-02", "TRACE-02");
 
-            var input = new ResetVehicleInput
-            {
-                AgvId = "AGV-UNKNOWN",
-                Reason = "复位"
-            };
+            _taskRepo.FindAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(task));
 
-            // Act & Assert
-            var ex = await Should.ThrowAsync<UserFriendlyException>(async () =>
-            {
-                await appService.ResetVehicleAsync(input);
-            });
-            ex.Message.ShouldContain("未找到车辆");
-
-            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
-                ctx.Action == "ResetVehicle" &&
-                ctx.BeforeState == "NonExistent"
-            ), OperationLogStatus.Failed, Arg.Any<string>());
-        }
-
-        [Fact]
-        public async Task ForceEndTaskAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
-        {
-            // Arrange
             var input = new ForceEndTaskInput
             {
                 TaskId = "TASK-1002",
@@ -176,11 +175,14 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _standaloneAppService.ForceEndTaskAsync(input);
+            var result = await _appService.ForceEndTaskAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
             result.CurrentState.ShouldBe("Succeeded");
+            task.Status.ShouldBe(AgvTaskStatus.Succeeded);
+
+            await _taskRepo.Received(1).UpdateAsync(task, autoSave: true);
 
             _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
                 ctx.Module == "Dispatch" &&
@@ -195,39 +197,45 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
         }
 
         [Fact]
-        public async Task AssignVehicleAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
+        public async Task ResetVehicleAsync_WhenVehicleNotFoundInRepo_Should_RecordFailure_And_ThrowEntityNotFound()
         {
             // Arrange
-            var input = new AssignVehicleInput
+            _vehicleRepo.FindAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvVehicle?>(null));
+            _vehicleRepo.FirstOrDefaultAsync(Arg.Any<Expression<Func<AgvVehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvVehicle?>(null));
+
+            var input = new ResetVehicleInput
             {
-                TaskId = "TASK-1003",
-                AgvId = "AGV-03",
-                Reason = "原分配车辆电量不足，手动改派备用车辆"
+                AgvId = "AGV-UNKNOWN",
+                Reason = "复位"
             };
 
-            // Act
-            var result = await _standaloneAppService.AssignVehicleAsync(input);
-
-            // Assert
-            result.Success.ShouldBeTrue();
-            result.CurrentState.ShouldBe("Assigned:AGV-03");
+            // Act & Assert
+            var ex = await Should.ThrowAsync<EntityNotFoundException>(async () =>
+            {
+                await _appService.ResetVehicleAsync(input);
+            });
+            ex.EntityType.ShouldBe(typeof(AgvVehicle));
 
             _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
-                ctx.Module == "Dispatch" &&
-                ctx.Action == "AssignVehicle" &&
-                ctx.TargetId == "TASK-1003" &&
-                ctx.TaskId == "TASK-1003" &&
-                ctx.AgvId == "AGV-03" &&
-                ctx.BeforeState == "Unassigned" &&
-                ctx.AfterState == "Assigned:AGV-03" &&
-                ctx.Reason == input.Reason
-            ), OperationLogStatus.Success, null);
+                ctx.Action == "ResetVehicle" &&
+                ctx.BeforeState == null &&
+                ctx.AfterState == null
+            ), OperationLogStatus.Failed, Arg.Any<string>());
         }
 
         [Fact]
-        public async Task ResetVehicleAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
+        public async Task ResetVehicleAsync_WhenVehicleExists_Should_Succeed_And_RecordOperationLog()
         {
             // Arrange
+            var vehicleId = Guid.NewGuid();
+            var vehicle = new AgvVehicle(vehicleId, "AGV-05");
+            vehicle.ReportError("雷达避障触发超时");
+
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<AgvVehicle, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvVehicle?>(vehicle));
+
             var input = new ResetVehicleInput
             {
                 AgvId = "AGV-05",
@@ -235,13 +243,16 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _standaloneAppService.ResetVehicleAsync(input);
+            var result = await _appService.ResetVehicleAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
             result.TargetType.ShouldBe("Vehicle");
             result.TargetId.ShouldBe("AGV-05");
             result.CurrentState.ShouldBe("Idle");
+            vehicle.Status.ShouldBe(VehicleStatus.Idle);
+
+            await _vehicleRepo.Received(1).UpdateAsync(vehicle, autoSave: true);
 
             _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
                 ctx.Module == "Dispatch" &&
@@ -251,6 +262,52 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 ctx.AgvId == "AGV-05" &&
                 ctx.BeforeState == "Error" &&
                 ctx.AfterState == "Idle" &&
+                ctx.Reason == input.Reason
+            ), OperationLogStatus.Success, null);
+        }
+
+        [Fact]
+        public async Task AssignVehicleAsync_WhenEntitiesExist_Should_Bind_And_RecordOperationLog()
+        {
+            // Arrange
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-1003", "ST-01", "ST-02");
+
+            var vehicleId = Guid.NewGuid();
+            var vehicle = new AgvVehicle(vehicleId, "AGV-03");
+
+            _taskRepo.FindAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(task));
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<AgvVehicle, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvVehicle?>(vehicle));
+
+            var input = new AssignVehicleInput
+            {
+                TaskId = "TASK-1003",
+                AgvId = "AGV-03",
+                Reason = "原分配车辆电量不足，手动改派备用车辆"
+            };
+
+            // Act
+            var result = await _appService.AssignVehicleAsync(input);
+
+            // Assert
+            result.Success.ShouldBeTrue();
+            result.CurrentState.ShouldBe("Assigned:AGV-03");
+            task.AssignedVehicleCode.ShouldBe("AGV-03");
+            vehicle.CurrentTaskCode.ShouldBe("TASK-1003");
+
+            await _taskRepo.Received(1).UpdateAsync(task, autoSave: true);
+            await _vehicleRepo.Received(1).UpdateAsync(vehicle, autoSave: true);
+
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.Module == "Dispatch" &&
+                ctx.Action == "AssignVehicle" &&
+                ctx.TargetId == "TASK-1003" &&
+                ctx.TaskId == "TASK-1003" &&
+                ctx.AgvId == "AGV-03" &&
+                ctx.BeforeState == "Unassigned" &&
+                ctx.AfterState == "Assigned:AGV-03" &&
                 ctx.Reason == input.Reason
             ), OperationLogStatus.Success, null);
         }

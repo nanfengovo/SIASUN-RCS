@@ -18,10 +18,10 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
             // 模拟高压注入 100 次 Warning/Error 与 Operation
             for (int i = 0; i < 100; i++)
             {
-                governor.ShouldAdmit("Telemetry", "Error").IsAdmitted.ShouldBeTrue();
-                governor.ShouldAdmit("Telemetry", "Warning").IsAdmitted.ShouldBeTrue();
-                governor.ShouldAdmit("Operation", "Information").IsAdmitted.ShouldBeTrue();
-                governor.ShouldAdmit("Dispatch", "Debug").IsAdmitted.ShouldBeTrue();
+                governor.ShouldAdmit(DiagnosticCategories.Telemetry, DiagnosticLevels.Error).IsAdmitted.ShouldBeTrue();
+                governor.ShouldAdmit(DiagnosticCategories.Telemetry, DiagnosticLevels.Warning).IsAdmitted.ShouldBeTrue();
+                governor.ShouldAdmit(DiagnosticCategories.Operation, DiagnosticLevels.Information).IsAdmitted.ShouldBeTrue();
+                governor.ShouldAdmit(DiagnosticCategories.Dispatch, DiagnosticLevels.Debug).IsAdmitted.ShouldBeTrue();
             }
 
             var metrics = governor.GetMetrics();
@@ -36,7 +36,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
 
             for (int i = 0; i < 20; i++)
             {
-                var decision = governor.ShouldAdmit("Telemetry", "Information");
+                var decision = governor.ShouldAdmit(DiagnosticCategories.Telemetry, DiagnosticLevels.Information);
                 decision.IsAdmitted.ShouldBeTrue();
                 decision.CurrentLevel.ShouldBe(TrafficGovernorLevel.Normal);
             }
@@ -53,7 +53,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
             // 模拟短时间大量涌入 100 个常规遥测
             for (int i = 0; i < 50; i++)
             {
-                governor.ShouldAdmit("Telemetry", "Trace");
+                governor.ShouldAdmit(DiagnosticCategories.Telemetry, DiagnosticLevels.Trace);
             }
             Thread.Sleep(1100); // 跨过 1 秒窗口使速率生效
 
@@ -62,7 +62,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
 
             for (int i = 0; i < 50; i++)
             {
-                var d = governor.ShouldAdmit("Telemetry", "Trace");
+                var d = governor.ShouldAdmit(DiagnosticCategories.Telemetry, DiagnosticLevels.Trace);
                 if (d.IsAdmitted) admittedCount++;
                 else droppedCount++;
             }

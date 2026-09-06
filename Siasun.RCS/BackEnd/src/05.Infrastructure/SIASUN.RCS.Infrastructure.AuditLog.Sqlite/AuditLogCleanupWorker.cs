@@ -14,13 +14,22 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
     {
         private readonly AuditLogCleanupService _cleanupService;
 
+        /// <summary>
+        /// 构造函数注入审计日志清理服务
+        /// </summary>
+        /// <param name="cleanupService">审计日志清理服务</param>
         public AuditLogCleanupJob(AuditLogCleanupService cleanupService)
         {
             _cleanupService = cleanupService;
         }
 
+        /// <summary>
+        /// 执行定期分片文件清理作业
+        /// </summary>
+        /// <param name="context">作业执行上下文</param>
         public Task Execute(IJobExecutionContext context)
         {
+            using var traceScope = SIASUN.RCS.Diagnostics.RcsTraceContext.SetScoped($"JOB-SQLITECLEANUP-{System.Guid.NewGuid():N}");
             return _cleanupService.CleanExpiredFilesAsync(context.CancellationToken);
         }
     }

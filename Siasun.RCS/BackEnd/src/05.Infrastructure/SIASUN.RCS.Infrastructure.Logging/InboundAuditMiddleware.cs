@@ -179,9 +179,9 @@ namespace SIASUN.RCS.Infrastructure.Logging
                         _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
                         {
                             Timestamp = DateTime.UtcNow,
-                            Track = "API",
+                            Track = SIASUN.RCS.Diagnostics.DiagnosticTracks.Api,
                             Level = apiLevel,
-                            Source = string.IsNullOrEmpty(peerName) ? "API" : peerName,
+                            Source = string.IsNullOrEmpty(peerName) ? SIASUN.RCS.Diagnostics.DiagnosticTracks.Api : peerName,
                             Title = $"{context.Request.Method} {context.Request.Path} ({context.Response.StatusCode})",
                             Summary = $"耗时: {sw.ElapsedMilliseconds}ms, 客户端: {context.Connection.RemoteIpAddress}",
                             TraceId = traceId
@@ -193,10 +193,10 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
         private static string ResolveAuditCategory(string path, string peerName)
         {
-            if (path.Contains("/dispatch", StringComparison.OrdinalIgnoreCase)) return "Dispatch";
-            if (path.Contains("/task", StringComparison.OrdinalIgnoreCase)) return "AgvTask";
-            if (path.Contains("/vehicle", StringComparison.OrdinalIgnoreCase)) return "AgvVehicle";
-            if (path.Contains("/operation", StringComparison.OrdinalIgnoreCase)) return "Operation";
+            if (path.Contains("/dispatch", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Dispatch;
+            if (path.Contains("/task", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Task;
+            if (path.Contains("/vehicle", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Vehicle;
+            if (path.Contains("/operation", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Operation;
 
             return peerName;
         }

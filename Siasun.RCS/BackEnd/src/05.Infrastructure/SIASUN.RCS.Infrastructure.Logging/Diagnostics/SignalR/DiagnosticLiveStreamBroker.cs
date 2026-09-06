@@ -20,7 +20,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
             "errors"
         };
 
-        private readonly SignalRDiagnosticsOptions _options;
+        private readonly DiagnosticLiveStreamOptions _options;
         private readonly IAdaptiveTrafficGovernor? _trafficGovernor;
         private readonly ConcurrentDictionary<string, ConcurrentQueue<LiveEventDto>> _ringBuffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, long> _topicLastAccessTicks = new(StringComparer.OrdinalIgnoreCase);
@@ -32,16 +32,28 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
         public bool IsEnabled => _options.IsEnabled;
 
         /// <summary>
-        /// 构造函数注入配置选项与自适应限流控制器
+        /// 构造函数注入标准配置选项与自适应限流控制器
         /// </summary>
-        /// <param name="options">SignalR 诊断推流配置选项</param>
+        /// <param name="options">规范实时推流配置选项</param>
         /// <param name="trafficGovernor">自适应限流控制器（可选）</param>
         public DiagnosticLiveStreamBroker(
-            IOptions<SignalRDiagnosticsOptions>? options = null,
+            IOptions<DiagnosticLiveStreamOptions>? options = null,
             IAdaptiveTrafficGovernor? trafficGovernor = null)
         {
-            _options = options?.Value ?? new SignalRDiagnosticsOptions();
+            _options = options?.Value ?? new DiagnosticLiveStreamOptions();
             _trafficGovernor = trafficGovernor;
+        }
+
+        /// <summary>
+        /// 兼容历史 SignalRDiagnosticsOptions 的构造函数重载
+        /// </summary>
+        /// <param name="signalROptions">历史 SignalR 配置选项</param>
+        /// <param name="trafficGovernor">自适应限流控制器（可选）</param>
+        public DiagnosticLiveStreamBroker(
+            IOptions<SignalRDiagnosticsOptions>? signalROptions,
+            IAdaptiveTrafficGovernor? trafficGovernor = null)
+            : this(signalROptions != null ? Microsoft.Extensions.Options.Options.Create<DiagnosticLiveStreamOptions>(signalROptions.Value) : null, trafficGovernor)
+        {
         }
 
         /// <summary>

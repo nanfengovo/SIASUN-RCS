@@ -410,8 +410,8 @@ public class RCSHttpApiHostModule : AbpModule
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
 
-        var signalROptions = context.ServiceProvider.GetService<Microsoft.Extensions.Options.IOptions<SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR.SignalRDiagnosticsOptions>>()?.Value;
-        if (signalROptions?.IsEnabled == true)
+        var signalROptions = context.ServiceProvider.GetService<Microsoft.Extensions.Options.IOptions<SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions>>()?.Value;
+        if (signalROptions?.Enabled == true)
         {
             app.UseEndpoints(endpoints =>
             {

@@ -8,23 +8,50 @@ using Microsoft.Extensions.Options;
 
 namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
 {
+    /// <summary>
+    /// SignalR 实时推流后台工作服务
+    /// 遵循规范三.4节流要求，定时批量刷新待推流事件至客户端
+    /// </summary>
     public class DiagnosticLiveStreamWorker : BackgroundService
     {
         private readonly IDiagnosticLiveStreamBroker _broker;
         private readonly IHubContext<DiagnosticHub> _hubContext;
-        private readonly SignalRDiagnosticsOptions _options;
+        private readonly SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions _options;
         private readonly ILogger<DiagnosticLiveStreamWorker> _logger;
 
+        /// <summary>
+        /// 构造函数注入所需依赖
+        /// </summary>
+        /// <param name="broker">实时诊断推流中台</param>
+        /// <param name="hubContext">SignalR Hub 上下文</param>
+        /// <param name="options">规范实时推流配置选项</param>
+        /// <param name="logger">日志记录器</param>
         public DiagnosticLiveStreamWorker(
             IDiagnosticLiveStreamBroker broker,
             IHubContext<DiagnosticHub> hubContext,
-            IOptions<SignalRDiagnosticsOptions>? options,
+            IOptions<SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions>? options,
             ILogger<DiagnosticLiveStreamWorker> logger)
         {
             _broker = broker;
             _hubContext = hubContext;
-            _options = options?.Value ?? new SignalRDiagnosticsOptions();
+            _options = options?.Value ?? new SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions();
             _logger = logger;
+        }
+
+        /// <summary>
+        /// 兼容历史 SignalRDiagnosticsOptions 的构造重载
+        /// </summary>
+        /// <param name="broker">实时诊断推流中台</param>
+        /// <param name="hubContext">SignalR Hub 上下文</param>
+        /// <param name="signalROptions">历史 SignalR 配置选项</param>
+        /// <param name="logger">日志记录器</param>
+        public DiagnosticLiveStreamWorker(
+            IDiagnosticLiveStreamBroker broker,
+            IHubContext<DiagnosticHub> hubContext,
+            IOptions<SignalRDiagnosticsOptions>? signalROptions,
+            ILogger<DiagnosticLiveStreamWorker> logger)
+            : this(broker, hubContext, signalROptions != null ? Microsoft.Extensions.Options.Options.Create<SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions>(signalROptions.Value) : null, logger)
+        {
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

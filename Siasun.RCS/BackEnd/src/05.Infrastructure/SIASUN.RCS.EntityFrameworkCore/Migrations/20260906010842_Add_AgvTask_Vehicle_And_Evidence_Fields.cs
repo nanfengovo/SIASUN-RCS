@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,48 +11,57 @@ namespace SIASUN.RCS.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            var isSqlite = migrationBuilder.ActiveProvider == "Microsoft.EntityFrameworkCore.Sqlite";
+            var guidType = isSqlite ? "TEXT" : "uniqueidentifier";
+            var dateTimeType = isSqlite ? "TEXT" : "datetime2";
+            var boolType = isSqlite ? "INTEGER" : "bit";
+            var intType = isSqlite ? "INTEGER" : "int";
+            var floatType = isSqlite ? "REAL" : "float";
+            Func<int, string> nvarchar = len => isSqlite ? "TEXT" : $"nvarchar({len})";
+            var nvarcharMax = isSqlite ? "TEXT" : "nvarchar(max)";
+
             migrationBuilder.AlterColumn<string>(
                 name: "ErrorMessage",
                 table: "AppOperationLogs",
-                type: "nvarchar(2048)",
+                type: nvarchar(2048),
                 maxLength: 2048,
                 nullable: true,
                 oldClrType: typeof(string),
-                oldType: "nvarchar(2048)",
+                oldType: nvarchar(2048),
                 oldMaxLength: 2048);
 
             migrationBuilder.AddColumn<string>(
                 name: "AfterState",
                 table: "AppOperationLogs",
-                type: "nvarchar(512)",
+                type: nvarchar(512),
                 maxLength: 512,
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "AgvId",
                 table: "AppOperationLogs",
-                type: "nvarchar(64)",
+                type: nvarchar(64),
                 maxLength: 64,
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "BeforeState",
                 table: "AppOperationLogs",
-                type: "nvarchar(512)",
+                type: nvarchar(512),
                 maxLength: 512,
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "Reason",
                 table: "AppOperationLogs",
-                type: "nvarchar(512)",
+                type: nvarchar(512),
                 maxLength: 512,
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "TaskId",
                 table: "AppOperationLogs",
-                type: "nvarchar(64)",
+                type: nvarchar(64),
                 maxLength: 64,
                 nullable: true);
 
@@ -60,32 +69,32 @@ namespace SIASUN.RCS.Migrations
                 name: "AppAgvTasks",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    TaskCode = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
-                    StepIndex = table.Column<int>(type: "int", nullable: false),
-                    WaitingEvent = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
-                    ActiveLeg = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    AssignedVehicleId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    AssignedVehicleCode = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    FromStation = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    ToStation = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    CarrierCode = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
-                    BatchId = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
-                    OptionCode = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
-                    TraceId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    FailureReason = table.Column<string>(type: "nvarchar(1024)", maxLength: 1024, nullable: true),
-                    StartTime = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    EndTime = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ExtraProperties = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    CreationTime = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CreatorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    LastModificationTime = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    LastModifierId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
-                    DeleterId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    DeletionTime = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    Id = table.Column<Guid>(type: guidType, nullable: false),
+                    TaskCode = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: false),
+                    Status = table.Column<int>(type: intType, nullable: false),
+                    StepIndex = table.Column<int>(type: intType, nullable: false),
+                    WaitingEvent = table.Column<string>(type: nvarchar(128), maxLength: 128, nullable: true),
+                    ActiveLeg = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    AssignedVehicleId = table.Column<Guid>(type: guidType, nullable: true),
+                    AssignedVehicleCode = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    FromStation = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    ToStation = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    CarrierCode = table.Column<string>(type: nvarchar(128), maxLength: 128, nullable: true),
+                    BatchId = table.Column<string>(type: nvarchar(128), maxLength: 128, nullable: true),
+                    OptionCode = table.Column<string>(type: nvarchar(256), maxLength: 256, nullable: true),
+                    TraceId = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    FailureReason = table.Column<string>(type: nvarchar(1024), maxLength: 1024, nullable: true),
+                    StartTime = table.Column<DateTime>(type: dateTimeType, nullable: true),
+                    EndTime = table.Column<DateTime>(type: dateTimeType, nullable: true),
+                    ExtraProperties = table.Column<string>(type: nvarcharMax, nullable: false),
+                    ConcurrencyStamp = table.Column<string>(type: nvarchar(40), maxLength: 40, nullable: false),
+                    CreationTime = table.Column<DateTime>(type: dateTimeType, nullable: false),
+                    CreatorId = table.Column<Guid>(type: guidType, nullable: true),
+                    LastModificationTime = table.Column<DateTime>(type: dateTimeType, nullable: true),
+                    LastModifierId = table.Column<Guid>(type: guidType, nullable: true),
+                    IsDeleted = table.Column<bool>(type: boolType, nullable: false, defaultValue: false),
+                    DeleterId = table.Column<Guid>(type: guidType, nullable: true),
+                    DeletionTime = table.Column<DateTime>(type: dateTimeType, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -96,24 +105,24 @@ namespace SIASUN.RCS.Migrations
                 name: "AppAgvVehicles",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    VehicleCode = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
-                    CurrentStation = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    BatteryPercentage = table.Column<double>(type: "float", nullable: false),
-                    IpAddress = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    ErrorMessage = table.Column<string>(type: "nvarchar(1024)", maxLength: 1024, nullable: true),
-                    CurrentTaskId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    CurrentTaskCode = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
-                    ExtraProperties = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    CreationTime = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CreatorId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    LastModificationTime = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    LastModifierId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
-                    DeleterId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    DeletionTime = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    Id = table.Column<Guid>(type: guidType, nullable: false),
+                    VehicleCode = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: false),
+                    Status = table.Column<int>(type: intType, nullable: false),
+                    CurrentStation = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    BatteryPercentage = table.Column<double>(type: floatType, nullable: false),
+                    IpAddress = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    ErrorMessage = table.Column<string>(type: nvarchar(1024), maxLength: 1024, nullable: true),
+                    CurrentTaskId = table.Column<Guid>(type: guidType, nullable: true),
+                    CurrentTaskCode = table.Column<string>(type: nvarchar(64), maxLength: 64, nullable: true),
+                    ExtraProperties = table.Column<string>(type: nvarcharMax, nullable: false),
+                    ConcurrencyStamp = table.Column<string>(type: nvarchar(40), maxLength: 40, nullable: false),
+                    CreationTime = table.Column<DateTime>(type: dateTimeType, nullable: false),
+                    CreatorId = table.Column<Guid>(type: guidType, nullable: true),
+                    LastModificationTime = table.Column<DateTime>(type: dateTimeType, nullable: true),
+                    LastModifierId = table.Column<Guid>(type: guidType, nullable: true),
+                    IsDeleted = table.Column<bool>(type: boolType, nullable: false, defaultValue: false),
+                    DeleterId = table.Column<Guid>(type: guidType, nullable: true),
+                    DeletionTime = table.Column<DateTime>(type: dateTimeType, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -176,6 +185,9 @@ namespace SIASUN.RCS.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            var isSqlite = migrationBuilder.ActiveProvider == "Microsoft.EntityFrameworkCore.Sqlite";
+            Func<int, string> nvarchar = len => isSqlite ? "TEXT" : $"nvarchar({len})";
+
             migrationBuilder.DropTable(
                 name: "AppAgvTasks");
 
@@ -213,12 +225,12 @@ namespace SIASUN.RCS.Migrations
             migrationBuilder.AlterColumn<string>(
                 name: "ErrorMessage",
                 table: "AppOperationLogs",
-                type: "nvarchar(2048)",
+                type: nvarchar(2048),
                 maxLength: 2048,
                 nullable: false,
                 defaultValue: "",
                 oldClrType: typeof(string),
-                oldType: "nvarchar(2048)",
+                oldType: nvarchar(2048),
                 oldMaxLength: 2048,
                 oldNullable: true);
         }

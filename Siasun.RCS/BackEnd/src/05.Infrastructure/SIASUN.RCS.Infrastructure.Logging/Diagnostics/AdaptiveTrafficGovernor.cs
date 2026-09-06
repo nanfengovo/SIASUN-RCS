@@ -142,22 +142,22 @@ namespace SIASUN.RCS.Diagnostics
 
         private static bool IsPrivileged(string category, string level)
         {
-            if (string.Equals(level, "Warning", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(level, "Error", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(level, "Fatal", StringComparison.OrdinalIgnoreCase) ||
+            if (string.Equals(level, DiagnosticLevels.Warning, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(level, DiagnosticLevels.Error, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(level, DiagnosticLevels.Fatal, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(level, "Critical", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
-            if (string.Equals(category, "Operation", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Operator", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "SelfHeal", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Dispatch", StringComparison.OrdinalIgnoreCase) ||
+            if (string.Equals(category, DiagnosticCategories.Operation, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, DiagnosticTracks.Operator, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, DiagnosticCategories.SelfHeal, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, DiagnosticCategories.Dispatch, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, DiagnosticCategories.Task, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "AgvTask", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Task", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, DiagnosticCategories.Vehicle, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "AgvVehicle", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Vehicle", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "Exception", StringComparison.OrdinalIgnoreCase))
             {
                 return true;

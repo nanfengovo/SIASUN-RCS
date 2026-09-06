@@ -1,5 +1,7 @@
 using System;
+using System.Threading;
 using System.Threading.Channels;
+using System.Threading.Tasks;
 using SIASUN.RCS.Auditing;
 using SIASUN.RCS.Infrastructure.Logging.Channels;
 
@@ -41,6 +43,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
         /// <summary>
         /// 尝试向通道写入一条 API 报文条目，根据优先级自动路由至特权或常规通道
+        /// 针对特权异常与调度接口铁证，排队满载时自动阻塞等待槽位（至多 2 秒），坚决杜绝静默丢弃
         /// </summary>
         /// <param name="entry">报文审计条目</param>
         /// <returns>是否成功入队</returns>
@@ -50,10 +53,43 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
             if (IsPrivilegedEntry(entry))
             {
-                return _priorityChannel.Writer.TryWrite(entry);
+                if (_priorityChannel.Writer.TryWrite(entry))
+                {
+                    return true;
+                }
+
+                // 特权通道虽然满了，由于 FullMode=Wait，TryWrite 会立即返回 false。
+                // 为达成 L4 铁证零丢失，特权条目进行阻塞写入等待（至多 2 秒）
+                try
+                {
+                    var writeTask = _priorityChannel.Writer.WriteAsync(entry).AsTask();
+                    return writeTask.Wait(TimeSpan.FromSeconds(2));
+                }
+                catch
+                {
+                    return false;
+                }
             }
 
             return _normalChannel.Writer.TryWrite(entry);
+        }
+
+        /// <summary>
+        /// 异步向通道写入一条 API 报文条目，特权异常条目在缓冲区满时将异步等待槽位，绝对不丢
+        /// </summary>
+        /// <param name="entry">报文审计条目</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        public ValueTask WriteAsync(ApiAuditLogEntry entry, CancellationToken cancellationToken = default)
+        {
+            if (entry == null) return ValueTask.CompletedTask;
+
+            if (IsPrivilegedEntry(entry))
+            {
+                return _priorityChannel.Writer.WriteAsync(entry, cancellationToken);
+            }
+
+            _normalChannel.Writer.TryWrite(entry);
+            return ValueTask.CompletedTask;
         }
 
         /// <summary>

@@ -11,6 +11,10 @@ using Volo.Abp.Settings;
 
 namespace SIASUN.RCS.Infrastructure.BackgroundJobs
 {
+    /// <summary>
+    /// 磁盘自愈清理定时任务
+    /// 监控工控机日志磁盘空间，触发高水位线时自动紧急清理历史日志并记录自愈审计
+    /// </summary>
     [DisallowConcurrentExecution]
     public class DiskSelfHealJob : IJob
     {
@@ -18,20 +22,49 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
         private readonly AuditLogCleanupService _cleanupService;
         private readonly IRepository<SystemEventLog, Guid> _eventLogRepository;
         private readonly ILogger<DiskSelfHealJob> _logger;
+        private readonly SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? _diagnosticLock;
 
+        /// <summary>
+        /// 构造函数注入所需依赖及可选分布式锁
+        /// </summary>
         public DiskSelfHealJob(
             ISettingProvider settingProvider,
             AuditLogCleanupService cleanupService,
             IRepository<SystemEventLog, Guid> eventLogRepository,
-            ILogger<DiskSelfHealJob> logger)
+            ILogger<DiskSelfHealJob> logger,
+            SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? diagnosticLock = null)
         {
             _settingProvider = settingProvider;
             _cleanupService = cleanupService;
             _eventLogRepository = eventLogRepository;
             _logger = logger;
+            _diagnosticLock = diagnosticLock;
         }
 
+        /// <summary>
+        /// 执行磁盘自愈检查与清理
+        /// </summary>
         public async Task Execute(IJobExecutionContext context)
+        {
+            using var traceScope = SIASUN.RCS.Diagnostics.RcsTraceContext.SetScoped($"JOB-DISKSELFHEAL-{Guid.NewGuid():N}");
+
+            if (_diagnosticLock != null)
+            {
+                using var lockHandle = await _diagnosticLock.TryAcquireLockAsync("job:disk_self_heal", TimeSpan.FromSeconds(5), context.CancellationToken);
+                if (lockHandle == null)
+                {
+                    _logger.LogInformation("另一个实例正在执行磁盘自愈清理作业，本次调度跳过");
+                    return;
+                }
+
+                await ExecuteCoreAsync(context);
+                return;
+            }
+
+            await ExecuteCoreAsync(context);
+        }
+
+        private async Task ExecuteCoreAsync(IJobExecutionContext context)
         {
             var isEnabled = await _settingProvider.GetAsync<bool>(RCSMonitorSettings.IsDiskSelfHealEnabled, true);
             if (!isEnabled)

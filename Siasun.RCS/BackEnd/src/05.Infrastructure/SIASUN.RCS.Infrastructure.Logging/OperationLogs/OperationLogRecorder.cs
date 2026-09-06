@@ -122,8 +122,8 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
                 _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
                 {
                     Timestamp = DateTime.UtcNow,
-                    Track = "Operator",
-                    Level = isFailed ? "Error" : "Information",
+                    Track = SIASUN.RCS.Diagnostics.DiagnosticTracks.Operator,
+                    Level = isFailed ? SIASUN.RCS.Diagnostics.DiagnosticLevels.Error : SIASUN.RCS.Diagnostics.DiagnosticLevels.Information,
                     Source = userName,
                     Title = $"[{context.Module}] {context.Action} {(isFailed ? "失败" : "成功")} ({context.TargetType}:{context.TargetId}){stateInfo}",
                     Summary = isFailed

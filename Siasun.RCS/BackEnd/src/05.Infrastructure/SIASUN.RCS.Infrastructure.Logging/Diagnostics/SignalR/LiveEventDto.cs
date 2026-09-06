@@ -21,16 +21,16 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         /// <summary>
-        /// 所属时序轨道 (API, Operator, Exception)
+        /// 所属时序轨道（对齐 DiagnosticTracks: Api, Operator, Entity, Task, Telemetry 等）
         /// </summary>
         [JsonPropertyName("track")]
-        public string Track { get; set; } = "API";
+        public string Track { get; set; } = SIASUN.RCS.Diagnostics.DiagnosticTracks.Api;
 
         /// <summary>
-        /// 日志或事件等级 (Information, Warning, Error, Fatal)
+        /// 日志或事件等级（对齐 DiagnosticLevels: Information, Warning, Error, Fatal 等）
         /// </summary>
         [JsonPropertyName("level")]
-        public string Level { get; set; } = "Information";
+        public string Level { get; set; } = SIASUN.RCS.Diagnostics.DiagnosticLevels.Information;
 
         /// <summary>
         /// 事件来源 (如 MES, TM, UI, Hardware)
