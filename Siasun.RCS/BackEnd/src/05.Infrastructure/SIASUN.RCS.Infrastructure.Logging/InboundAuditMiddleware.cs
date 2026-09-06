@@ -65,7 +65,6 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
             // 2. 统一解析与维护全局 TraceId / CorrelationId 锚点
             var traceId = ResolveTraceId(context);
-            using var traceScope = SIASUN.RCS.Diagnostics.RcsTraceContext.SetScoped(traceId);
 
             // 锁死写入请求头与上下文 Items，保证后续 EF 实体拦截器与业务操作审计获得完全一致的 TraceId
             if (!context.Request.Headers.ContainsKey("X-Correlation-Id"))

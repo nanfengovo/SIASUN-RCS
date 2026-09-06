@@ -19,24 +19,28 @@ namespace SIASUN.RCS.Infrastructure.Logging
         private readonly IEntityAuditLogStore _store;
         private readonly ILogger<EntityAuditLogConsumer> _logger;
         private readonly Diagnostics.SignalR.IDiagnosticLiveStreamBroker? _liveStreamBroker;
+        private readonly SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? _trafficGovernor;
 
         /// <summary>
-        /// 构造函数注入所需存储与日志依赖
+        /// 构造函数注入所需存储、日志与限流依赖
         /// </summary>
         /// <param name="channel">内存通道</param>
         /// <param name="store">持久化存储提供者</param>
         /// <param name="logger">系统日志</param>
         /// <param name="liveStreamBroker">实时诊断流广播服务（可选）</param>
+        /// <param name="trafficGovernor">自适应限流与背压降采样控制器（可选）</param>
         public EntityAuditLogConsumer(
             EntityAuditLogChannel channel,
             IEntityAuditLogStore store,
             ILogger<EntityAuditLogConsumer> logger,
-            Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null)
+            Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null,
+            SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? trafficGovernor = null)
         {
             _channel = channel;
             _store = store;
             _logger = logger;
             _liveStreamBroker = liveStreamBroker;
+            _trafficGovernor = trafficGovernor;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -51,6 +55,16 @@ namespace SIASUN.RCS.Infrastructure.Logging
                     {
                         while (batch.Count < 50 && _channel.Reader.TryRead(out var msg))
                         {
+                            // L4 自适应限流保盘防护：突发洪峰时，对非核心实体的常规变更进行平滑采样
+                            // 调度核心实体（AgvTask / AgvVehicle / Operator）受 IsPrivileged 保护 100% 持久化
+                            if (_trafficGovernor != null)
+                            {
+                                var decision = _trafficGovernor.ShouldAdmit(msg.EntityName, "Information");
+                                if (!decision.IsAdmitted)
+                                {
+                                    continue;
+                                }
+                            }
                             var entry = new EntityAuditLogEntry
                             {
                                 TraceId = msg.TraceId,

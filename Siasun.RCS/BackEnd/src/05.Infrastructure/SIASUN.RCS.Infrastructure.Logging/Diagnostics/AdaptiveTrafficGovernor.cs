@@ -128,13 +128,14 @@ namespace SIASUN.RCS.Diagnostics
             var startTicks = Volatile.Read(ref _windowStartTicks);
             var elapsedSeconds = (nowTicks - startTicks) / (double)TimeSpan.TicksPerSecond;
 
-            Interlocked.Increment(ref _windowEventCount);
+            var currentCount = Interlocked.Increment(ref _windowEventCount);
 
-            if (elapsedSeconds >= 1.0)
+            // 达到 1 秒滑动窗口，或者在短时间内事件突增达到阈值时，即刻计算刷新瞬时 EPS，实现亚秒级敏捷自适应响应
+            if (elapsedSeconds >= 1.0 || currentCount >= _elevatedThresholdEps)
             {
                 var count = Interlocked.Exchange(ref _windowEventCount, 0);
                 Interlocked.Exchange(ref _windowStartTicks, nowTicks);
-                var eps = (long)(count / Math.Max(0.1, elapsedSeconds));
+                var eps = (long)(count / Math.Max(0.001, elapsedSeconds));
                 Interlocked.Exchange(ref _lastCalculatedEps, eps);
             }
         }
@@ -152,7 +153,12 @@ namespace SIASUN.RCS.Diagnostics
             if (string.Equals(category, "Operation", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "Operator", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "SelfHeal", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Dispatch", StringComparison.OrdinalIgnoreCase))
+                string.Equals(category, "Dispatch", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "AgvTask", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "Task", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "AgvVehicle", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "Vehicle", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "Exception", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }

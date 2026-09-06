@@ -215,5 +215,66 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
             // The most recent dynamic topic should exist
             broker.GetHistory("task:TASK-020").ShouldNotBeEmpty();
         }
+
+        [Fact]
+        public void Publish_Under_CriticalBurst_Should_Throttle_Telemetry_While_Preserving_Errors_And_Operations()
+        {
+            var options = Options.Create(new SignalRDiagnosticsOptions
+            {
+                IsEnabled = true,
+                RingBufferCapacity = 500
+            });
+
+            // 构造真实的 AdaptiveTrafficGovernor，设置极低的阈值以便在测试中快速触发 CriticalBurst
+            var governor = new SIASUN.RCS.Diagnostics.AdaptiveTrafficGovernor(elevatedThresholdEps: 5, criticalThresholdEps: 10);
+
+            var broker = new DiagnosticLiveStreamBroker(options, governor);
+
+            // 1. 发送一批高频非关键遥测事件，迅速推高 EPS 触发 CriticalBurst 限流降采样
+            for (int i = 0; i < 50; i++)
+            {
+                broker.Publish(new LiveEventDto
+                {
+                    Track = "Telemetry",
+                    Level = "Information",
+                    Title = $"Telemetry Sensor Ping {i}"
+                });
+            }
+
+            // 2. 穿插发送关键铁证：Operation 操作事件与 Error/Warning 异常事件
+            for (int i = 0; i < 10; i++)
+            {
+                broker.Publish(new LiveEventDto
+                {
+                    Track = "Operator",
+                    Level = "Information",
+                    Title = $"Operator Dispatch Intervention {i}",
+                    TargetId = $"TASK-{i}"
+                });
+
+                broker.Publish(new LiveEventDto
+                {
+                    Track = "Exception",
+                    Level = "Error",
+                    Title = $"Hardware Collision Error {i}"
+                });
+            }
+
+            var allEvents = broker.GetHistory("all", 500);
+            var errorEvents = broker.GetHistory("errors", 500);
+
+            // 核心断言 1：所有 10 条 Error 异常必须 100% 准入放行
+            errorEvents.Count.ShouldBe(10);
+
+            // 核心断言 2：所有 10 条 Operator 调度人工干预必须 100% 准入放行
+            allEvents.Count(e => e.Track == "Operator").ShouldBe(10);
+
+            // 核心断言 3：Telemetry 事件在洪峰状态下被自适应平滑降采样丢弃（准入数显著少于 50）
+            var admittedTelemetryCount = allEvents.Count(e => e.Track == "Telemetry");
+            admittedTelemetryCount.ShouldBeLessThan(50);
+
+            var metrics = governor.GetMetrics();
+            metrics.TotalDroppedCount.ShouldBeGreaterThan(0);
+        }
     }
 }

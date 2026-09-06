@@ -122,16 +122,16 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 if (!string.IsNullOrWhiteSpace(val)) return val;
             }
 
-            var cid = _correlationIdProvider?.Get();
-            if (!string.IsNullOrWhiteSpace(cid))
-            {
-                return cid;
-            }
-
             var ambient = SIASUN.RCS.Diagnostics.RcsTraceContext.CurrentTraceId;
             if (!string.IsNullOrWhiteSpace(ambient))
             {
                 return ambient;
+            }
+
+            var cid = _correlationIdProvider?.Get();
+            if (!string.IsNullOrWhiteSpace(cid))
+            {
+                return cid;
             }
 
             return Guid.NewGuid().ToString("N");

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Options;
+using SIASUN.RCS.Diagnostics;
 using Volo.Abp.DependencyInjection;
 
 namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
@@ -20,6 +21,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
         };
 
         private readonly SignalRDiagnosticsOptions _options;
+        private readonly IAdaptiveTrafficGovernor? _trafficGovernor;
         private readonly ConcurrentDictionary<string, ConcurrentQueue<LiveEventDto>> _ringBuffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, long> _topicLastAccessTicks = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentQueue<(string Topic, LiveEventDto Event)> _pendingQueue = new();
@@ -30,11 +32,16 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
         public bool IsEnabled => _options.IsEnabled;
 
         /// <summary>
-        /// 构造函数注入配置选项
+        /// 构造函数注入配置选项与自适应限流控制器
         /// </summary>
-        public DiagnosticLiveStreamBroker(IOptions<SignalRDiagnosticsOptions>? options = null)
+        /// <param name="options">SignalR 诊断推流配置选项</param>
+        /// <param name="trafficGovernor">自适应限流控制器（可选）</param>
+        public DiagnosticLiveStreamBroker(
+            IOptions<SignalRDiagnosticsOptions>? options = null,
+            IAdaptiveTrafficGovernor? trafficGovernor = null)
         {
             _options = options?.Value ?? new SignalRDiagnosticsOptions();
+            _trafficGovernor = trafficGovernor;
         }
 
         /// <summary>
@@ -46,6 +53,18 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
             if (!_options.IsEnabled || evt == null) return;
 
             // 级别门槛过滤：低于 MinLogLevel 的事件不推流
+            // 1. L4 自适应限流背压保护：在突发洪峰或高频日志风暴时平滑降采样非关键遥测
+            // 铁律：Warning/Error/Fatal 异常与 Operation/Task/Vehicle 铁证 100% 绝对放行
+            if (_trafficGovernor != null)
+            {
+                var decision = _trafficGovernor.ShouldAdmit(evt.Track, evt.Level);
+                if (!decision.IsAdmitted)
+                {
+                    return;
+                }
+            }
+
+            // 2. 级别门槛过滤：低于 MinLogLevel 的事件不推流
             if (!IsLevelSatisfied(evt.Level, _options.MinLogLevel))
             {
                 return;
