@@ -1,4 +1,24 @@
 {
   "dotnet.unitTests.runSettingsPath": "Siasun.RCS/BackEnd/coverlet.runsettings",
-  "csharp.unitTests.runSettingsPath": "Siasun.RCS/BackEnd/coverlet.runsettings"
+  "csharp.unitTests.runSettingsPath": "Siasun.RCS/BackEnd/coverlet.runsettings",
+  "git.autofetch": false,
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/bin/**": true,
+    "**/obj/**": true,
+    "**/logs/**": true,
+    "**/*.clef": true,
+    "**/*.sqlite*": true,
+    "**/TestResults/**": true
+  },
+  "search.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/logs": true,
+    "**/*.clef": true,
+    "**/*.sqlite*": true,
+    "**/TestResults": true
+  }
 }
