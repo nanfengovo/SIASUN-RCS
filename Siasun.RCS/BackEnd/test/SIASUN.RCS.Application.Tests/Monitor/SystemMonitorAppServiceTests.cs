@@ -63,5 +63,57 @@ namespace SIASUN.RCS.Application.Tests.Monitor
             report.DatabaseLogHealth.ShouldBe(CapacityHealthLevel.Warning);
             report.ActiveAlerts.ShouldContain(a => a.Contains("预警水位"));
         }
+
+        [Fact]
+        public async Task GetCapacityHealthAsync_When_PrivilegeSpillOccurs_Should_Escalate_To_Critical()
+        {
+            // Arrange
+            _opRepo.GetCountAsync().Returns(Task.FromResult(100L));
+            _sysRepo.GetCountAsync().Returns(Task.FromResult(100L));
+
+            var mockApiChannel = Substitute.For<SIASUN.RCS.Auditing.IApiAuditLogChannel>();
+            mockApiChannel.SpillCount.Returns(5L);
+            mockApiChannel.TotalQueueCount.Returns(120);
+
+            var mockEntityChannel = Substitute.For<SIASUN.RCS.Auditing.IEntityAuditLogChannel>();
+            mockEntityChannel.SpillCount.Returns(3L);
+            mockEntityChannel.TotalQueueCount.Returns(80);
+
+            var mockLiveStream = Substitute.For<SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider>();
+            mockLiveStream.PendingCount.Returns(15);
+
+            var mockGovernor = Substitute.For<SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor>();
+            mockGovernor.GetMetrics().Returns(new SIASUN.RCS.Diagnostics.TrafficGovernorMetrics
+            {
+                CurrentEps = 150.0,
+                CurrentLevel = SIASUN.RCS.Diagnostics.TrafficGovernorLevel.Elevated,
+                TotalAdmittedCount = 500,
+                TotalDroppedCount = 20
+            });
+
+            var appService = new SystemMonitorAppService(
+                _settingProvider,
+                _opRepo,
+                _sysRepo,
+                mockApiChannel,
+                mockEntityChannel,
+                mockLiveStream,
+                mockGovernor);
+
+            // Act
+            var report = await appService.GetCapacityHealthAsync();
+
+            // Assert
+            report.ShouldNotBeNull();
+            report.PrivilegeSpillCount.ShouldBe(8L);
+            report.PrivilegeSpillHealth.ShouldBe(CapacityHealthLevel.Critical);
+            report.OverallHealth.ShouldBe(CapacityHealthLevel.Critical);
+            report.ApiChannelDepth.ShouldBe(120);
+            report.EntityChannelDepth.ShouldBe(80);
+            report.LiveStreamPendingCount.ShouldBe(15);
+            report.GovernorCurrentEps.ShouldBe(150.0);
+            report.GovernorDropCount.ShouldBe(20);
+            report.ActiveAlerts.ShouldContain(a => a.Contains("应急溢流落盘保全已触发"));
+        }
     }
 }

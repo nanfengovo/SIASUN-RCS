@@ -4,27 +4,6 @@ using System.Collections.Generic;
 namespace SIASUN.RCS.Monitor
 {
     /// <summary>
-    /// 系统容量健康评级
-    /// </summary>
-    public enum CapacityHealthLevel
-    {
-        /// <summary>
-        /// 健康稳定（容量与日志行数处于绿色安全水位）
-        /// </summary>
-        Healthy = 0,
-
-        /// <summary>
-        /// 预警（触及预警阈值，提示运维人员关注或规划扩容）
-        /// </summary>
-        Warning = 1,
-
-        /// <summary>
-        /// 严重告警（触及高水位红线，必须立即触发自愈自清理或人工介入）
-        /// </summary>
-        Critical = 2
-    }
-
-    /// <summary>
     /// 长期容量可观测与前瞻告警健康报告（L4 自治观测模型）
     /// </summary>
     public class CapacityHealthReportDto
@@ -58,6 +37,41 @@ namespace SIASUN.RCS.Monitor
         /// 数据库日志膨胀健康等级
         /// </summary>
         public CapacityHealthLevel DatabaseLogHealth { get; set; } = CapacityHealthLevel.Healthy;
+
+        /// <summary>
+        /// API 审计日志通道当前待消费积压深度
+        /// </summary>
+        public int ApiChannelDepth { get; set; }
+
+        /// <summary>
+        /// 实体变更审计日志通道当前待消费积压深度
+        /// </summary>
+        public int EntityChannelDepth { get; set; }
+
+        /// <summary>
+        /// SignalR 实时诊断推流中台当前待推送事件积压数
+        /// </summary>
+        public int LiveStreamPendingCount { get; set; }
+
+        /// <summary>
+        /// 特权审计证据应急溢流落盘累计计数（一旦大于 0 说明瞬时满负荷触发了本地文件落盘保全）
+        /// </summary>
+        public long PrivilegeSpillCount { get; set; }
+
+        /// <summary>
+        /// 特权审计证据保全健康等级（若有特权证据触发应急落盘则标为 Critical）
+        /// </summary>
+        public CapacityHealthLevel PrivilegeSpillHealth { get; set; } = CapacityHealthLevel.Healthy;
+
+        /// <summary>
+        /// 自适应限流调控器当前瞬时速率 (EPS)
+        /// </summary>
+        public double GovernorCurrentEps { get; set; }
+
+        /// <summary>
+        /// 自适应限流调控器累计降采样丢弃常规/遥测事件数
+        /// </summary>
+        public long GovernorDropCount { get; set; }
 
         /// <summary>
         /// 当前触发的主动容量告警条目清单

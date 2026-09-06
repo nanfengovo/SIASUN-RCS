@@ -11,6 +11,9 @@ using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS;
 
+/// <summary>
+/// SIASUN RCS 应用服务层模块（业务用例、任务编排与监控服务）
+/// </summary>
 [DependsOn(
     typeof(RCSDomainModule),
     typeof(RCSApplicationContractsModule),

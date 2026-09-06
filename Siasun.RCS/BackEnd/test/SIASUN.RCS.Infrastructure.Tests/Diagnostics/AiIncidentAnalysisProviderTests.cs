@@ -61,7 +61,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
         }
 
         [Fact]
-        public async Task AnalyzeIncidentAsync_WhenDisabled_ShouldReturnFailedImmediatelyWithoutHttpCall()
+        public async Task AnalyzeIncidentAsync_WhenDisabled_ShouldFallbackToRuleEngineWithoutHttpCall()
         {
             // Arrange
             var options = Options.Create(new AiDiagnosticsOptions
@@ -82,9 +82,10 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
 
             // Assert
             result.ShouldNotBeNull();
-            result.IsSuccess.ShouldBeFalse();
-            result.ErrorMessage.ShouldNotBeNull();
-            result.ErrorMessage.ShouldContain("未启用");
+            result.IsSuccess.ShouldBeTrue();
+            result.ModelUsed.ShouldContain("RuleBasedFallback");
+            result.RootCauseSummary.ShouldNotBeNullOrWhiteSpace();
+            result.MarkdownReport.ShouldContain("【根因结论】");
         }
 
         [Fact]
@@ -155,7 +156,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
         }
 
         [Fact]
-        public async Task AnalyzeIncidentAsync_WhenHttpFails_ShouldGracefullyCatchAndReturnFailure()
+        public async Task AnalyzeIncidentAsync_WhenHttpFails_ShouldGracefullyFallbackToRuleEngine()
         {
             // Arrange
             var options = Options.Create(new AiDiagnosticsOptions
@@ -184,9 +185,13 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
 
             // Assert
             result.ShouldNotBeNull();
-            result.IsSuccess.ShouldBeFalse();
+            result.IsSuccess.ShouldBeTrue();
+            result.ModelUsed.ShouldContain("RuleBasedFallback");
             result.ErrorMessage.ShouldNotBeNull();
-            result.ErrorMessage.ShouldContain("AI 推理异常");
+            result.ErrorMessage.ShouldContain("降级");
+            result.ErrorMessage.ShouldContain("500");
+            result.RootCauseSummary.ShouldNotBeNullOrWhiteSpace();
+            result.MarkdownReport.ShouldContain("【根因结论】");
         }
 
         [Fact]

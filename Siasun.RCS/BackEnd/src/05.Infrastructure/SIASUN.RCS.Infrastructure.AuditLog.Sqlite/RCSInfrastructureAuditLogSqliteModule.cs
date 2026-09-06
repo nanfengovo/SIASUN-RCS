@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using SIASUN.RCS.Auditing;
 using Volo.Abp;
 using Volo.Abp.EntityFrameworkCore.Sqlite;
 using Volo.Abp.Modularity;
@@ -20,11 +19,19 @@ namespace SIASUN.RCS.Infrastructure.AuditLog.Sqlite
     [ExcludeFromCodeCoverage]
     public class RCSInfrastructureAuditLogSqliteModule : AbpModule
     {
+        /// <summary>
+        /// 配置服务依赖
+        /// </summary>
+        /// <param name="context">服务配置上下文</param>
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
             // 存储接口实现和按月分库工厂已通过 ISingletonDependency 自动注册
         }
 
+        /// <summary>
+        /// 应用程序初始化逻辑：初始化当前月份 SQLite 分库
+        /// </summary>
+        /// <param name="context">应用程序初始化上下文</param>
         public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
         {
             // 初始化本月对应的数据库

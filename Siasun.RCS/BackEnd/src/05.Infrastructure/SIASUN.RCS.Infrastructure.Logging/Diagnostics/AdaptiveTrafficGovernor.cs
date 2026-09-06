@@ -12,6 +12,7 @@ namespace SIASUN.RCS.Diagnostics
     {
         private readonly int _elevatedThresholdEps;
         private readonly int _criticalThresholdEps;
+        private readonly IEvidencePrivilegePolicy _privilegePolicy;
 
         private long _windowStartTicks;
         private long _windowEventCount;
@@ -22,14 +23,19 @@ namespace SIASUN.RCS.Diagnostics
         private long _totalDropped;
 
         /// <summary>
-        /// 默认构造函数，初始化典型工控机防护阈值
+        /// 默认构造函数，初始化典型工控机防护阈值与统一特权裁决策略
         /// </summary>
         /// <param name="elevatedThresholdEps">轻度限流阈值（每秒事件数，默认 100）</param>
         /// <param name="criticalThresholdEps">重度限流阈值（每秒事件数，默认 500）</param>
-        public AdaptiveTrafficGovernor(int elevatedThresholdEps = 100, int criticalThresholdEps = 500)
+        /// <param name="privilegePolicy">统一特权裁决策略单一真实源（可选，默认 DefaultEvidencePrivilegePolicy）</param>
+        public AdaptiveTrafficGovernor(
+            int elevatedThresholdEps = 100,
+            int criticalThresholdEps = 500,
+            IEvidencePrivilegePolicy? privilegePolicy = null)
         {
             _elevatedThresholdEps = elevatedThresholdEps;
             _criticalThresholdEps = criticalThresholdEps;
+            _privilegePolicy = privilegePolicy ?? DefaultEvidencePrivilegePolicy.Instance;
             _windowStartTicks = DateTime.UtcNow.Ticks;
         }
 
@@ -52,45 +58,40 @@ namespace SIASUN.RCS.Diagnostics
             UpdateEpsRate();
 
             var currentLevel = GetCurrentLevel();
-            if (currentLevel == TrafficGovernorLevel.Normal)
+            var shouldSample = currentLevel switch
+            {
+                TrafficGovernorLevel.Normal => true,
+                TrafficGovernorLevel.Elevated => (Interlocked.Increment(ref _samplingCounter) % 2 == 0), // 降采样 50%
+                TrafficGovernorLevel.CriticalBurst => (Interlocked.Increment(ref _samplingCounter) % 10 == 0), // 降采样 90%
+                _ => true
+            };
+
+            if (shouldSample)
             {
                 Interlocked.Increment(ref _totalAdmitted);
-                return TrafficSamplingDecision.Admit(currentLevel, 1.0);
+                return TrafficSamplingDecision.Admit(currentLevel);
             }
-
-            // 3. 根据当前压力等级动态降采样常规高频事件
-            var counter = Interlocked.Increment(ref _samplingCounter);
-            if (currentLevel == TrafficGovernorLevel.Elevated)
+            else
             {
-                // 50% 采样比率
-                if (counter % 2 == 0)
-                {
-                    Interlocked.Increment(ref _totalAdmitted);
-                    return TrafficSamplingDecision.Admit(currentLevel, 0.5);
-                }
-
                 Interlocked.Increment(ref _totalDropped);
-                return TrafficSamplingDecision.Drop(currentLevel, 0.5, "流量偏高触发自适应 50% 降采样保护");
+                var ratio = currentLevel switch
+                {
+                    TrafficGovernorLevel.Elevated => 0.5,
+                    TrafficGovernorLevel.CriticalBurst => 0.1,
+                    _ => 1.0
+                };
+                return TrafficSamplingDecision.Drop(currentLevel, ratio, $"自适应流量削峰抑制 ({currentLevel})");
             }
-
-            // CriticalBurst 突发洪峰：10% 采样比率
-            if (counter % 10 == 0)
-            {
-                Interlocked.Increment(ref _totalAdmitted);
-                return TrafficSamplingDecision.Admit(currentLevel, 0.1);
-            }
-
-            Interlocked.Increment(ref _totalDropped);
-            return TrafficSamplingDecision.Drop(currentLevel, 0.1, "突发洪峰触发自适应 90% 降采样保盘保护");
         }
 
         /// <summary>
-        /// 获取当前自适应限流状态指标快照
+        /// 获取当前限流状态指标快照
         /// </summary>
-        /// <returns>运行时指标快照</returns>
+        /// <returns>包含瞬时 EPS 与累计放行/丢弃数的度量数据</returns>
         public TrafficGovernorMetrics GetMetrics()
         {
             UpdateEpsRate();
+
             return new TrafficGovernorMetrics
             {
                 CurrentEps = Volatile.Read(ref _lastCalculatedEps),
@@ -102,7 +103,7 @@ namespace SIASUN.RCS.Diagnostics
         }
 
         /// <summary>
-        /// 重置统计计数器（便于现场诊断或单元测试）
+        /// 重置计数器与滑动时间窗口
         /// </summary>
         public void Reset()
         {
@@ -117,8 +118,16 @@ namespace SIASUN.RCS.Diagnostics
         private TrafficGovernorLevel GetCurrentLevel()
         {
             var eps = Volatile.Read(ref _lastCalculatedEps);
-            if (eps >= _criticalThresholdEps) return TrafficGovernorLevel.CriticalBurst;
-            if (eps >= _elevatedThresholdEps) return TrafficGovernorLevel.Elevated;
+            if (eps >= _criticalThresholdEps)
+            {
+                return TrafficGovernorLevel.CriticalBurst;
+            }
+
+            if (eps >= _elevatedThresholdEps)
+            {
+                return TrafficGovernorLevel.Elevated;
+            }
+
             return TrafficGovernorLevel.Normal;
         }
 
@@ -140,34 +149,9 @@ namespace SIASUN.RCS.Diagnostics
             }
         }
 
-        private static bool IsPrivileged(string category, string level)
+        private bool IsPrivileged(string category, string level)
         {
-            if (string.Equals(level, DiagnosticLevels.Warning, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(level, DiagnosticLevels.Error, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(level, DiagnosticLevels.Fatal, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(level, "Critical", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (string.Equals(category, DiagnosticCategories.Operation, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, DiagnosticTracks.Operator, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, DiagnosticCategories.SelfHeal, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, DiagnosticCategories.Dispatch, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, DiagnosticCategories.Task, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "AgvTask", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Task", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, DiagnosticCategories.Vehicle, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "AgvVehicle", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Vehicle", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "TM", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "MES", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(category, "Exception", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return false;
+            return _privilegePolicy.IsPrivileged(category: category, level: level);
         }
     }
 }

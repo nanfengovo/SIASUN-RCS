@@ -140,10 +140,20 @@ namespace SIASUN.RCS.Infrastructure.Logging
         }
     }
 
+    /// <summary>
+    /// 实体审计属性前后值差异对比项
+    /// </summary>
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class PropertyDiff
     {
+        /// <summary>
+        /// 变更前的旧值
+        /// </summary>
         public object? Old { get; set; }
+
+        /// <summary>
+        /// 变更后的新值
+        /// </summary>
         public object? New { get; set; }
     }
 

@@ -52,8 +52,8 @@ namespace SIASUN.RCS.Infrastructure.Logging.Tasks
                 _liveStreamBroker.Publish(new LiveEventDto
                 {
                     Timestamp = eventData.EndTime,
-                    Track = "Task",
-                    Level = isFailed ? "Error" : (isCanceled ? "Warning" : "Information"),
+                    Track = SIASUN.RCS.Diagnostics.DiagnosticTracks.Task,
+                    Level = isFailed ? SIASUN.RCS.Diagnostics.DiagnosticLevels.Error : (isCanceled ? SIASUN.RCS.Diagnostics.DiagnosticLevels.Warning : SIASUN.RCS.Diagnostics.DiagnosticLevels.Information),
                     Source = "WorkflowEngine",
                     Title = $"任务 [{eventData.TaskCode}] 流程结束 ({eventData.FinalStatus})",
                     Summary = string.IsNullOrWhiteSpace(eventData.Reason)

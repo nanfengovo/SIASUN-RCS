@@ -22,6 +22,9 @@ using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS;
 
+/// <summary>
+/// SIASUN RCS 领域层核心模块
+/// </summary>
 [DependsOn(
     typeof(RCSDomainSharedModule),
     typeof(AbpAuditLoggingDomainModule),
@@ -40,6 +43,10 @@ namespace SIASUN.RCS;
 [ExcludeFromCodeCoverage]
 public class RCSDomainModule : AbpModule
 {
+    /// <summary>
+    /// 配置领域层服务与选项
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         Configure<AbpMultiTenancyOptions>(options =>

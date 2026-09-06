@@ -9,6 +9,9 @@ using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS;
 
+/// <summary>
+/// SIASUN RCS 应用服务契约层模块（DTO、接口与权限常量定义）
+/// </summary>
 [DependsOn(
     typeof(RCSDomainSharedModule),
     typeof(AbpFeatureManagementApplicationContractsModule),
@@ -21,6 +24,10 @@ namespace SIASUN.RCS;
 [ExcludeFromCodeCoverage]
 public class RCSApplicationContractsModule : AbpModule
 {
+    /// <summary>
+    /// 服务契约预配置
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void PreConfigureServices(ServiceConfigurationContext context)
     {
         RCSDtoExtensions.Configure();

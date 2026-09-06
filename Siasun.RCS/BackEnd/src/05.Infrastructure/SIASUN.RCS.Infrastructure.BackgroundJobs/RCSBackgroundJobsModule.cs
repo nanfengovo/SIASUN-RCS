@@ -27,6 +27,10 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
     [ExcludeFromCodeCoverage]
     public class RCSBackgroundJobsModule : AbpModule
     {
+        /// <summary>
+        /// 配置后台定时任务调度与 Quartz 作业触发器
+        /// </summary>
+        /// <param name="context">服务配置上下文</param>
         public override void ConfigureServices(ServiceConfigurationContext context)
         {
             var configuration = context.Services.GetConfiguration();

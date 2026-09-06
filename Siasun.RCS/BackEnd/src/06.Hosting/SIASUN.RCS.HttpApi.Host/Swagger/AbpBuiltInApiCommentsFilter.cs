@@ -180,9 +180,26 @@ namespace SIASUN.RCS.Swagger
             }
 
             // --- 系统资源监控 (System Monitor) ---
+            // --- 系统资源与容量健康监控 (System Monitor) ---
             else if (path.StartsWith("api/app/system-monitor"))
             {
                 if (path.EndsWith("system-resources") && method == "GET") { operation.Summary = "获取系统资源全局监控视图模型"; operation.Description = "前端大屏直接拉取此接口获取当前进程内存占用状态、日志磁盘水位与容量百分比，用于直接在前端仪表盘上渲染进度条。"; }
+                else if (path.EndsWith("capacity-health") && method == "GET") { operation.Summary = "获取长期容量可观测与前瞻健康评估报告"; operation.Description = "【L4工业自治观测】评估工控机磁盘水位、持久化日志膨胀行数、异步审计通道积压与特权溢流保全健康等级，提前识别容量瓶颈。"; }
+            }
+
+            // --- 调度干预操作 (Dispatch Intervention) ---
+            else if (path.StartsWith("api/app/dispatch-intervention"))
+            {
+                if (path.EndsWith("cancel-task") && method == "POST") { operation.Summary = "调度员人工干预：强制取消任务"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，终止任务并触发状态步进收敛。"; }
+                else if (path.EndsWith("force-end-task") && method == "POST") { operation.Summary = "调度员人工干预：强制结单任务"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，标记任务成功强制结单并释放库位锁。"; }
+                else if (path.EndsWith("retry-task") && method == "POST") { operation.Summary = "调度员人工干预：重试失败任务"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，重新将任务置为待执行态以再次调度。"; }
+                else if (path.EndsWith("reassign-vehicle") && method == "POST") { operation.Summary = "调度员人工干预：改派执行车辆"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，解绑原车并重新指派目标 AGV。"; }
+            }
+
+            // --- 前端审计留痕 (Frontend Audit) ---
+            else if (path.StartsWith("api/app/frontend-audit"))
+            {
+                if (path.EndsWith("page-access") && method == "POST") { operation.Summary = "前端页面访问审计留痕"; operation.Description = "记录调度员在 Web 前端访问的页面、路由及停留时间，纳入定分止争操作日志链。"; }
             }
 
             // --- 调度员操作日志 (Operation Log) ---

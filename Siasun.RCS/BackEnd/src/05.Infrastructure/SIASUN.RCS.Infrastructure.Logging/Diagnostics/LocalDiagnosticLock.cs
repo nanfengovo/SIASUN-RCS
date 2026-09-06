@@ -52,16 +52,26 @@ namespace SIASUN.RCS.Diagnostics
             return Task.FromResult(false);
         }
 
+        /// <summary>
+        /// 信号量排他锁自动释放器
+        /// </summary>
         private class LockReleaser : IDisposable
         {
             private readonly SemaphoreSlim _semaphore;
             private int _disposed;
 
+            /// <summary>
+            /// 初始化锁释放器
+            /// </summary>
+            /// <param name="semaphore">所持有的信号量实例</param>
             public LockReleaser(SemaphoreSlim semaphore)
             {
                 _semaphore = semaphore;
             }
 
+            /// <summary>
+            /// 释放所持有的信号量
+            /// </summary>
             public void Dispose()
             {
                 if (Interlocked.Exchange(ref _disposed, 1) == 0)

@@ -41,6 +41,9 @@ using SIASUN.RCS.Infrastructure.BackgroundJobs;
 
 namespace SIASUN.RCS;
 
+/// <summary>
+/// SIASUN RCS Web API 主宿主启动模块
+/// </summary>
 [DependsOn(
     typeof(RCSHttpApiModule),
     typeof(AbpStudioClientAspNetCoreModule),
@@ -58,6 +61,10 @@ namespace SIASUN.RCS;
 [ExcludeFromCodeCoverage]
 public class RCSHttpApiHostModule : AbpModule
 {
+    /// <summary>
+    /// 预配置宿主 OpenIddict 鉴权服务
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void PreConfigureServices(ServiceConfigurationContext context)
     {
         var hostingEnvironment = context.Services.GetHostingEnvironment();

@@ -35,5 +35,15 @@ namespace SIASUN.RCS.Diagnostics
         /// AGV 遥测与底盘时序事件轨道
         /// </summary>
         public const string Telemetry = "Telemetry";
+
+        /// <summary>
+        /// 异常与故障时序事件轨道
+        /// </summary>
+        public const string Exception = "Exception";
+
+        /// <summary>
+        /// AGV 车辆与硬件设备时序事件轨道
+        /// </summary>
+        public const string Vehicle = "Vehicle";
     }
 }

@@ -14,32 +14,46 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
     {
         private readonly ChannelReader<T> _priorityReader;
         private readonly ChannelReader<T> _normalReader;
+        private readonly EvidenceSpillBuffer<T>? _spillBuffer;
 
         /// <summary>
         /// 构造双轨优先级通道读取器
         /// </summary>
         /// <param name="priorityReader">高优先级特权读取器</param>
         /// <param name="normalReader">常规高频读取器</param>
-        public PriorityChannelReader(ChannelReader<T> priorityReader, ChannelReader<T> normalReader)
+        /// <param name="spillBuffer">特权铁证紧急溢出保全环（可选，优先消费）</param>
+        public PriorityChannelReader(
+            ChannelReader<T> priorityReader,
+            ChannelReader<T> normalReader,
+            EvidenceSpillBuffer<T>? spillBuffer = null)
         {
             _priorityReader = priorityReader;
             _normalReader = normalReader;
+            _spillBuffer = spillBuffer;
         }
 
         /// <inheritdoc />
         public override bool TryRead(out T item)
         {
+            if (_spillBuffer != null && _spillBuffer.TryDequeue(out item!))
+            {
+                return true;
+            }
+
             if (_priorityReader.TryRead(out item!))
             {
                 return true;
             }
+
             return _normalReader.TryRead(out item!);
         }
 
         /// <inheritdoc />
         public override async ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
         {
-            if (_priorityReader.Count > 0 || _normalReader.Count > 0)
+            if ((_spillBuffer != null && _spillBuffer.PendingSpillCount > 0) ||
+                _priorityReader.Count > 0 ||
+                _normalReader.Count > 0)
             {
                 return true;
             }
@@ -58,6 +72,6 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
         public override bool CanCount => _priorityReader.CanCount && _normalReader.CanCount;
 
         /// <inheritdoc />
-        public override int Count => _priorityReader.Count + _normalReader.Count;
+        public override int Count => (_spillBuffer?.PendingSpillCount ?? 0) + _priorityReader.Count + _normalReader.Count;
     }
 }

@@ -5,7 +5,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
     /// <summary>
     /// 诊断事件实时流式分发代理中台契约
     /// </summary>
-    public interface IDiagnosticLiveStreamBroker
+    public interface IDiagnosticLiveStreamBroker : SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider
     {
         /// <summary>
         /// 是否启用了推流中台

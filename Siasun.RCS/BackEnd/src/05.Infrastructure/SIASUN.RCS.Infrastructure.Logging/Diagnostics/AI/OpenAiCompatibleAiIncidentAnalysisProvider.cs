@@ -18,25 +18,43 @@ using Volo.Abp.DependencyInjection;
 
 namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.AI
 {
+    /// <summary>
+    /// OpenAI 兼容的事故根因智能推演 Provider
+    /// 支持对接 Ollama、DeepSeek、OpenAI 或各类本地部署的兼容端点，具备自动本地规则降级能力
+    /// </summary>
     public class OpenAiCompatibleAiIncidentAnalysisProvider : IAiIncidentAnalysisProvider, ITransientDependency
     {
         private readonly IHttpClientFactory? _httpClientFactory;
         private readonly HttpClient? _directHttpClient;
         private readonly AiDiagnosticsOptions _options;
         private readonly ILogger<OpenAiCompatibleAiIncidentAnalysisProvider> _logger;
+        private readonly RuleBasedIncidentAnalysisProvider _fallbackProvider;
 
+        /// <summary>
+        /// 是否启用了在线 AI 诊断模块（若未启用仍可通过本地规则引擎降级提供分析）
+        /// </summary>
         public bool IsEnabled => _options.IsEnabled;
 
+        /// <summary>
+        /// 初始化 OpenAI 兼容事故分析 Provider 实例
+        /// </summary>
+        /// <param name="httpClientFactory">HTTP 客户端工厂</param>
+        /// <param name="httpClient">直接注入的 HTTP 客户端（测试或特定场景注入）</param>
+        /// <param name="options">AI 诊断配置选项</param>
+        /// <param name="logger">日志记录器</param>
+        /// <param name="fallbackProvider">本地规则降级 Provider（可选）</param>
         public OpenAiCompatibleAiIncidentAnalysisProvider(
             IHttpClientFactory? httpClientFactory = null,
             HttpClient? httpClient = null,
             IOptions<AiDiagnosticsOptions>? options = null,
-            ILogger<OpenAiCompatibleAiIncidentAnalysisProvider>? logger = null)
+            ILogger<OpenAiCompatibleAiIncidentAnalysisProvider>? logger = null,
+            RuleBasedIncidentAnalysisProvider? fallbackProvider = null)
         {
             _httpClientFactory = httpClientFactory;
             _directHttpClient = httpClient;
             _options = options?.Value ?? new AiDiagnosticsOptions();
             _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<OpenAiCompatibleAiIncidentAnalysisProvider>.Instance;
+            _fallbackProvider = fallbackProvider ?? new RuleBasedIncidentAnalysisProvider();
         }
 
         private HttpClient GetClient()
@@ -54,6 +72,14 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.AI
             return new HttpClient();
         }
 
+        /// <summary>
+        /// 执行事故根因智能推理；若外部端点不可用或配置未启用，将自动降级为本地确定性规则诊断
+        /// </summary>
+        /// <param name="metadata">黑匣子元数据</param>
+        /// <param name="events">时序事件集合</param>
+        /// <param name="baseNarrative">基础叙事报告</param>
+        /// <param name="ct">取消令牌</param>
+        /// <returns>事故根因推理分析结果</returns>
         public async Task<AiAnalysisResultDto> AnalyzeIncidentAsync(
             FlightPackMetadata metadata,
             IReadOnlyList<FlightPackTimelineEvent> events,
@@ -64,11 +90,9 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.AI
 
             if (!_options.IsEnabled)
             {
-                return new AiAnalysisResultDto
-                {
-                    IsSuccess = false,
-                    ErrorMessage = "AI 诊断模块在系统配置中未启用 (AiDiagnostics:IsEnabled = false)"
-                };
+                var fallback = await _fallbackProvider.AnalyzeIncidentAsync(metadata, events, baseNarrative, ct);
+                fallback.ModelUsed = "RuleBasedFallback (AI Disabled)";
+                return fallback;
             }
 
             try
@@ -147,15 +171,13 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.AI
             catch (Exception ex)
             {
                 sw.Stop();
-                _logger.LogWarning(ex, "AI 根因智能分析调用失败: {Message}", ex.Message);
+                _logger.LogWarning(ex, "AI 根因智能分析调用失败，自动降级至本地规则诊断引擎: {Message}", ex.Message);
 
-                return new AiAnalysisResultDto
-                {
-                    IsSuccess = false,
-                    ModelUsed = _options.Model,
-                    ElapsedMs = sw.ElapsedMilliseconds,
-                    ErrorMessage = $"AI 推理异常: {ex.Message}"
-                };
+                var fallback = await _fallbackProvider.AnalyzeIncidentAsync(metadata, events, baseNarrative, ct);
+                fallback.ModelUsed = $"RuleBasedFallback ({_options.Model} Failed: {ex.Message})";
+                fallback.ErrorMessage = $"在线 AI 异常降级: {ex.Message}";
+                fallback.ElapsedMs = sw.ElapsedMilliseconds;
+                return fallback;
             }
         }
 

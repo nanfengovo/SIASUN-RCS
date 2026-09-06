@@ -16,6 +16,9 @@ using Volo.Abp.Studio;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
+/// <summary>
+/// SIASUN RCS Entity Framework Core 仓储与持久化模块（支持双数据库 SQL Server 与 SQLite 兼容）
+/// </summary>
 [DependsOn(
     typeof(RCSDomainModule),
     typeof(AbpPermissionManagementEntityFrameworkCoreModule),
@@ -32,12 +35,20 @@ namespace SIASUN.RCS.EntityFrameworkCore;
 [ExcludeFromCodeCoverage]
 public class RCSEntityFrameworkCoreModule : AbpModule
 {
+    /// <summary>
+    /// EF Core 预配置
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void PreConfigureServices(ServiceConfigurationContext context)
     {
 
         RCSEfCoreEntityExtensionMappings.Configure();
     }
 
+    /// <summary>
+    /// 配置 DbContext 与实体审计拦截器
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         context.Services.AddAbpDbContext<RCSDbContext>(options =>

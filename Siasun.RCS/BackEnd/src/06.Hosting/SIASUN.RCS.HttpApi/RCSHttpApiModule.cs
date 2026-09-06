@@ -12,7 +12,10 @@ using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS;
 
- [DependsOn(
+/// <summary>
+/// SIASUN RCS Web API 控制器层模块
+/// </summary>
+[DependsOn(
     typeof(RCSApplicationContractsModule),
     typeof(AbpPermissionManagementHttpApiModule),
     typeof(AbpSettingManagementHttpApiModule),
@@ -24,6 +27,10 @@ namespace SIASUN.RCS;
 [ExcludeFromCodeCoverage]
 public class RCSHttpApiModule : AbpModule
 {
+    /// <summary>
+    /// 配置多语言本地化资源
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         ConfigureLocalization();

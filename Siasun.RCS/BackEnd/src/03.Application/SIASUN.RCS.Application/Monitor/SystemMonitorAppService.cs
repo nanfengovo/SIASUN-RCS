@@ -21,21 +21,37 @@ namespace SIASUN.RCS.Monitor
         private readonly ISettingProvider _settingProvider;
         private readonly IRepository<OperationLog, Guid>? _operationLogRepository;
         private readonly IRepository<SystemEventLog, Guid>? _systemEventLogRepository;
+        private readonly SIASUN.RCS.Auditing.IApiAuditLogChannel? _apiAuditLogChannel;
+        private readonly SIASUN.RCS.Auditing.IEntityAuditLogChannel? _entityAuditLogChannel;
+        private readonly SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider? _liveStreamTelemetry;
+        private readonly SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? _trafficGovernor;
 
         /// <summary>
-        /// 构造函数注入设置提供者与审计日志仓储
+        /// 构造函数注入设置提供者、审计日志仓储与诊断通道监控组件
         /// </summary>
         /// <param name="settingProvider">ABP 设置提供者</param>
         /// <param name="operationLogRepository">操作审计日志仓储（可选）</param>
         /// <param name="systemEventLogRepository">系统事件日志仓储（可选）</param>
+        /// <param name="apiAuditLogChannel">API 审计日志通道（可选）</param>
+        /// <param name="entityAuditLogChannel">实体审计日志通道（可选）</param>
+        /// <param name="liveStreamTelemetry">实时推流遥测提供者（可选）</param>
+        /// <param name="trafficGovernor">自适应流量控制器（可选）</param>
         public SystemMonitorAppService(
             ISettingProvider settingProvider,
             IRepository<OperationLog, Guid>? operationLogRepository = null,
-            IRepository<SystemEventLog, Guid>? systemEventLogRepository = null)
+            IRepository<SystemEventLog, Guid>? systemEventLogRepository = null,
+            SIASUN.RCS.Auditing.IApiAuditLogChannel? apiAuditLogChannel = null,
+            SIASUN.RCS.Auditing.IEntityAuditLogChannel? entityAuditLogChannel = null,
+            SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider? liveStreamTelemetry = null,
+            SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? trafficGovernor = null)
         {
             _settingProvider = settingProvider;
             _operationLogRepository = operationLogRepository;
             _systemEventLogRepository = systemEventLogRepository;
+            _apiAuditLogChannel = apiAuditLogChannel;
+            _entityAuditLogChannel = entityAuditLogChannel;
+            _liveStreamTelemetry = liveStreamTelemetry;
+            _trafficGovernor = trafficGovernor;
         }
 
         /// <summary>
@@ -148,8 +164,41 @@ namespace SIASUN.RCS.Monitor
                 alerts.Add($"数据库日志表累计达 {dbRows:N0} 行，已进入预警水位 (500,000)，建议关注归档策略。");
             }
 
-            // 4. 综合健康判定
-            var overall = (CapacityHealthLevel)Math.Max((int)diskHealth, (int)dbHealth);
+            // 4. 统计异步审计通道积压与特权溢流保全指标
+            var apiDepth = _apiAuditLogChannel?.TotalQueueCount ?? 0;
+            var entityDepth = _entityAuditLogChannel?.TotalQueueCount ?? 0;
+            var liveStreamDepth = _liveStreamTelemetry?.PendingCount ?? 0;
+            var apiSpill = _apiAuditLogChannel?.SpillCount ?? 0;
+            var entitySpill = _entityAuditLogChannel?.SpillCount ?? 0;
+            var totalSpill = apiSpill + entitySpill;
+
+            var spillHealth = CapacityHealthLevel.Healthy;
+            if (totalSpill > 0)
+            {
+                spillHealth = CapacityHealthLevel.Critical;
+                alerts.Add($"检测到核心审计特权证据应急溢流落盘保全已触发 (累计 {totalSpill:N0} 条特权事件通过本地磁盘保全)，请排查工控机写库吞吐与通道负载！");
+            }
+            else if (apiDepth > 1000 || entityDepth > 1000)
+            {
+                alerts.Add($"审计通道内部积压偏高 (API通道: {apiDepth}, 实体通道: {entityDepth})，请关注后台消费 Worker 处理时效。");
+            }
+
+            // 5. 采集自适应流量控制器运行指标
+            double currentEps = 0;
+            long droppedCount = 0;
+            if (_trafficGovernor != null)
+            {
+                var govMetrics = _trafficGovernor.GetMetrics();
+                currentEps = govMetrics.CurrentEps;
+                droppedCount = govMetrics.TotalDroppedCount;
+                if (govMetrics.CurrentLevel == SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst)
+                {
+                    alerts.Add($"自适应流量调控器已进入 CriticalBurst 突发削峰状态 (当前 EPS: {currentEps:F1})，低优先级遥测已被强力抑制。");
+                }
+            }
+
+            // 6. 综合健康判定（包含特权溢流安全等级）
+            var overall = (CapacityHealthLevel)Math.Max(Math.Max((int)diskHealth, (int)dbHealth), (int)spillHealth);
 
             return new CapacityHealthReportDto
             {
@@ -159,6 +208,13 @@ namespace SIASUN.RCS.Monitor
                 LogDirectorySizeBytes = logDirSize,
                 DatabaseLogTotalRows = dbRows,
                 DatabaseLogHealth = dbHealth,
+                ApiChannelDepth = apiDepth,
+                EntityChannelDepth = entityDepth,
+                LiveStreamPendingCount = liveStreamDepth,
+                PrivilegeSpillCount = totalSpill,
+                PrivilegeSpillHealth = spillHealth,
+                GovernorCurrentEps = currentEps,
+                GovernorDropCount = droppedCount,
                 ActiveAlerts = alerts,
                 EvaluatedAt = DateTime.UtcNow
             };

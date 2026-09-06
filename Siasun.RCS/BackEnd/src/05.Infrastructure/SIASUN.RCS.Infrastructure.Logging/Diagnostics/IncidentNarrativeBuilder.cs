@@ -2,13 +2,24 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using SIASUN.RCS.Diagnostics;
 using SIASUN.RCS.Diagnostics.FlightPack;
 using Volo.Abp.DependencyInjection;
 
 namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
 {
+    /// <summary>
+    /// 黑匣子离线报告 Markdown 叙事生成器
+    /// 将客观时序事件与人为操作日志综合提炼为因果时序与排障建议报告
+    /// </summary>
     public class IncidentNarrativeBuilder : IIncidentNarrativeBuilder, ITransientDependency
     {
+        /// <summary>
+        /// 基于黑匣子元数据与多轨时序事件构建 Markdown 格式的排障叙事报告
+        /// </summary>
+        /// <param name="metadata">黑匣子元数据</param>
+        /// <param name="timelineEvents">时序事件集合</param>
+        /// <returns>格式化的 Markdown 叙事报告正文</returns>
         public string BuildMarkdownNarrative(FlightPackMetadata metadata, IReadOnlyList<FlightPackTimelineEvent> timelineEvents)
         {
             var sb = new StringBuilder();
@@ -86,6 +97,9 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
 
             var anomalies = timelineEvents?
                 .Where(e => e.Level == "Error" || e.Level == "Fatal" || e.Level == "Warning")
+                .Where(e => string.Equals(e.Level, DiagnosticLevels.Error, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(e.Level, DiagnosticLevels.Fatal, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(e.Level, DiagnosticLevels.Warning, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(e => e.Timestamp)
                 .ToList() ?? new List<FlightPackTimelineEvent>();
 
@@ -100,6 +114,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
 
                 var operatorEvents = timelineEvents?
                     .Where(e => e.Track == "Operator")
+                    .Where(e => string.Equals(e.Track, DiagnosticTracks.Operator, StringComparison.OrdinalIgnoreCase))
                     .OrderBy(e => e.Timestamp)
                     .ToList();
 
@@ -300,6 +315,9 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
             {
                 "Error" or "Fatal" => "🛑",
                 "Warning" => "⚠️",
+                var l when string.Equals(l, DiagnosticLevels.Error, StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(l, DiagnosticLevels.Fatal, StringComparison.OrdinalIgnoreCase) => "🛑",
+                var l when string.Equals(l, DiagnosticLevels.Warning, StringComparison.OrdinalIgnoreCase) => "⚠️",
                 _ => "🔹"
             };
 
@@ -308,6 +326,11 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
                 "API" => "通信",
                 "Operator" => "操作",
                 "Exception" => "异常",
+                var t when string.Equals(t, DiagnosticTracks.Api, StringComparison.OrdinalIgnoreCase) => "通信",
+                var t when string.Equals(t, DiagnosticTracks.Operator, StringComparison.OrdinalIgnoreCase) => "操作",
+                var t when string.Equals(t, DiagnosticTracks.Exception, StringComparison.OrdinalIgnoreCase) => "异常",
+                var t when string.Equals(t, DiagnosticTracks.Entity, StringComparison.OrdinalIgnoreCase) => "实体",
+                var t when string.Equals(t, DiagnosticTracks.Vehicle, StringComparison.OrdinalIgnoreCase) => "车辆",
                 _ => evt.Track
             };
 

@@ -17,6 +17,9 @@ using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS;
 
+/// <summary>
+/// SIASUN RCS 领域共享层模块
+/// </summary>
 [DependsOn(
     typeof(AbpAuditLoggingDomainSharedModule),
     typeof(AbpBackgroundJobsDomainSharedModule),
@@ -31,12 +34,20 @@ namespace SIASUN.RCS;
 [ExcludeFromCodeCoverage]
 public class RCSDomainSharedModule : AbpModule
 {
+    /// <summary>
+    /// 服务预配置
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void PreConfigureServices(ServiceConfigurationContext context)
     {
         RCSGlobalFeatureConfigurator.Configure();
         RCSModuleExtensionConfigurator.Configure();
     }
 
+    /// <summary>
+    /// 配置虚拟文件系统与多语言本地化资源
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         Configure<AbpVirtualFileSystemOptions>(options =>
