@@ -164,5 +164,43 @@ public class ApiAuditLogConsumerTests
         cts.Cancel();
         await consumer.StopAsync(CancellationToken.None);
     }
+
+    /// <summary>
+    /// 【用例 6：落库失败特权铁证零丢失】当 SaveBatchAsync 抛出数据库异常时，批次中的特权铁证（如 500 异常或核心接口）必须回灌 SpillBuffer 应急落盘保全，杜绝静默灭证
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_WhenStoreThrowsException_ShouldSpillPrivilegedEntriesToZeroLossBuffer()
+    {
+        // ----------------- 1. Arrange -----------------
+        _store.SaveBatchAsync(Arg.Any<IReadOnlyList<ApiAuditLogEntry>>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new System.InvalidOperationException("DB connection closed unexpectedly"));
+
+        // 写入 50 条记录（1 条特权 500 异常，49 条常规 200），使 Worker 立即满批触发 SaveBatchAsync
+        _channel.TryWrite(new ApiAuditLogEntry { Path = "/api/v1/system/critical-failure", StatusCode = 500 });
+        for (int i = 1; i < 50; i++)
+        {
+            _channel.TryWrite(new ApiAuditLogEntry { Path = $"/api/normal/{i}", StatusCode = 200 });
+        }
+
+        var consumer = new ApiAuditLogConsumer(_channel, _store, _logger);
+        using var cts = new CancellationTokenSource();
+
+        // ----------------- 2. Act -----------------
+        var consumerTask = consumer.StartAsync(cts.Token);
+        for (int i = 0; i < 20 && _channel.SpillBuffer.PendingSpillCount == 0; i++)
+        {
+            await Task.Delay(100);
+        }
+        cts.Cancel();
+        await consumer.StopAsync(CancellationToken.None);
+
+        // ----------------- 3. Assert -----------------
+        // 验证特权 500 异常铁证已成功被回灌至 SpillBuffer，常规 200 正常出队且丢弃
+        _channel.SpillBuffer.PendingSpillCount.ShouldBe(1);
+        _channel.SpillBuffer.TryDequeue(out var spilledEntry).ShouldBeTrue();
+        spilledEntry.ShouldNotBeNull();
+        spilledEntry.StatusCode.ShouldBe(500);
+        spilledEntry.Path.ShouldBe("/api/v1/system/critical-failure");
+    }
 }
 

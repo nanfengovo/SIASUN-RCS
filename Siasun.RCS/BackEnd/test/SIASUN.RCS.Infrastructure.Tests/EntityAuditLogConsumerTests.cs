@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Shouldly;
 using SIASUN.RCS.Auditing;
 using SIASUN.RCS.Infrastructure.Logging;
@@ -56,7 +57,7 @@ namespace SIASUN.RCS.Infrastructure.Tests
             var channel = new EntityAuditLogChannel();
             var mockStore = Substitute.For<IEntityAuditLogStore>();
             IReadOnlyList<EntityAuditLogEntry>? capturedBatch = null;
-            await mockStore.SaveBatchAsync(Arg.Do<IReadOnlyList<EntityAuditLogEntry>>(b => capturedBatch = new List<EntityAuditLogEntry>(b)), Arg.Any<CancellationToken>());
+            _ = mockStore.SaveBatchAsync(Arg.Do<IReadOnlyList<EntityAuditLogEntry>>(b => capturedBatch = new List<EntityAuditLogEntry>(b)), Arg.Any<CancellationToken>());
 
             var governor = Substitute.For<SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor>();
             // 模拟限流策略：非关键实体 SensorData 丢弃，而核心调度实体 AgvTask 准入
@@ -72,9 +73,6 @@ namespace SIASUN.RCS.Infrastructure.Tests
                 liveStreamBroker: null,
                 trafficGovernor: governor
             );
-
-            var cts = new CancellationTokenSource();
-            var task = consumer.StartAsync(cts.Token);
 
             // 写入一条非关键遥测实体变更
             channel.TryWrite(new EntityAuditLogMessage
@@ -96,7 +94,13 @@ namespace SIASUN.RCS.Infrastructure.Tests
                 CreationTime = DateTime.UtcNow
             });
 
-            await Task.Delay(200);
+            var cts = new CancellationTokenSource();
+            var task = consumer.StartAsync(cts.Token);
+
+            for (int i = 0; i < 20 && capturedBatch == null; i++)
+            {
+                await Task.Delay(100);
+            }
 
             cts.Cancel();
             try { await task; } catch { }
@@ -106,6 +110,56 @@ namespace SIASUN.RCS.Infrastructure.Tests
             capturedBatch.Count.ShouldBe(1);
             capturedBatch[0].EntityName.ShouldBe("AgvTask");
             capturedBatch[0].EntityId.ShouldBe("TASK-001");
+        }
+
+        [Fact]
+        public async Task Should_Spill_Privileged_Entities_To_Buffer_When_Store_Fails()
+        {
+            var channel = new EntityAuditLogChannel();
+            var mockStore = Substitute.For<IEntityAuditLogStore>();
+            mockStore.SaveBatchAsync(Arg.Any<IReadOnlyList<EntityAuditLogEntry>>(), Arg.Any<CancellationToken>())
+                .ThrowsAsync(new InvalidOperationException("DB Deadlock"));
+
+            var consumer = new EntityAuditLogConsumer(
+                channel,
+                mockStore,
+                NullLogger<EntityAuditLogConsumer>.Instance
+            );
+
+            channel.TryWrite(new EntityAuditLogMessage
+            {
+                TraceId = "TRACE-TASK-SPILL",
+                EntityName = "AgvTask",
+                EntityId = "TASK-002",
+                Action = "Modified",
+                CreationTime = DateTime.UtcNow
+            });
+            channel.TryWrite(new EntityAuditLogMessage
+            {
+                TraceId = "TRACE-TEMP-SPILL",
+                EntityName = "TempWorker",
+                EntityId = "TMP-001",
+                Action = "Modified",
+                CreationTime = DateTime.UtcNow
+            });
+
+            var cts = new CancellationTokenSource();
+            var task = consumer.StartAsync(cts.Token);
+
+            for (int i = 0; i < 20 && channel.PendingSpillCount == 0; i++)
+            {
+                await Task.Delay(100);
+            }
+
+            cts.Cancel();
+            try { await task; } catch { }
+
+            // Assert: Core entity AgvTask was spilled back to SpillBuffer, non-core TempWorker was not spilled
+            channel.PendingSpillCount.ShouldBe(1);
+            channel.SpillBuffer.TryDequeue(out var spilledMsg).ShouldBeTrue();
+            spilledMsg.ShouldNotBeNull();
+            spilledMsg.EntityName.ShouldBe("AgvTask");
+            spilledMsg.EntityId.ShouldBe("TASK-002");
         }
     }
 }

@@ -70,6 +70,12 @@ namespace SIASUN.RCS.Monitor
 
         /// <summary>
         /// 特权审计证据保全健康等级（若有特权证据触发应急落盘则标为 Critical）
+        /// 累计应急落盘本地磁盘写入失败次数（若大于 0 说明工控机本地存储写保护、空间耗尽或 I/O 故障，严重威胁铁证零丢失）
+        /// </summary>
+        public long SpillDiskWriteFailures { get; set; }
+
+        /// <summary>
+        /// 特权审计证据保全健康等级（若有特权证据处于未消化溢流或磁盘写入失败则标为 Critical）
         /// </summary>
         public CapacityHealthLevel PrivilegeSpillHealth { get; set; } = CapacityHealthLevel.Healthy;
 

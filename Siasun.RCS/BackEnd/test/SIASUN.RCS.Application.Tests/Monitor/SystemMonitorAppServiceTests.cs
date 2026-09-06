@@ -164,5 +164,39 @@ namespace SIASUN.RCS.Application.Tests.Monitor
             ((int)report.OverallHealth).ShouldBeGreaterThanOrEqualTo((int)CapacityHealthLevel.Warning);
             report.ActiveAlerts.ShouldContain(a => a.Contains("当前已全部恢复/入库"));
         }
+
+        [Fact]
+        public async Task GetCapacityHealthAsync_When_SpillDiskWriteFailuresOccur_Should_Escalate_To_Critical()
+        {
+            // Arrange
+            _opRepo.GetCountAsync().Returns(Task.FromResult(100L));
+            _sysRepo.GetCountAsync().Returns(Task.FromResult(100L));
+
+            var mockApiChannel = Substitute.For<SIASUN.RCS.Auditing.IApiAuditLogChannel>();
+            mockApiChannel.SpillCount.Returns(0L);
+            mockApiChannel.PendingSpillCount.Returns(0);
+            mockApiChannel.SpillDiskWriteFailures.Returns(3L);
+
+            var mockEntityChannel = Substitute.For<SIASUN.RCS.Auditing.IEntityAuditLogChannel>();
+            var mockOpChannel = Substitute.For<SIASUN.RCS.Auditing.IOperationLogChannel>();
+
+            var appService = new SystemMonitorAppService(
+                _settingProvider,
+                _opRepo,
+                _sysRepo,
+                mockApiChannel,
+                mockEntityChannel,
+                mockOpChannel);
+
+            // Act
+            var report = await appService.GetCapacityHealthAsync();
+
+            // Assert
+            report.ShouldNotBeNull();
+            report.SpillDiskWriteFailures.ShouldBe(3L);
+            report.PrivilegeSpillHealth.ShouldBe(CapacityHealthLevel.Critical);
+            report.OverallHealth.ShouldBe(CapacityHealthLevel.Critical);
+            report.ActiveAlerts.ShouldContain(a => a.Contains("本地磁盘应急落盘写入失败"));
+        }
     }
 }

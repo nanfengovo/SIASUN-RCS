@@ -184,8 +184,18 @@ namespace SIASUN.RCS.Monitor
             var opPendingSpill = _operationLogChannel?.PendingSpillCount ?? 0;
             var totalPendingSpill = apiPendingSpill + entityPendingSpill + opPendingSpill;
 
+            var apiDiskFailures = _apiAuditLogChannel?.SpillDiskWriteFailures ?? 0;
+            var entityDiskFailures = _entityAuditLogChannel?.SpillDiskWriteFailures ?? 0;
+            var opDiskFailures = _operationLogChannel?.SpillDiskWriteFailures ?? 0;
+            var totalDiskFailures = apiDiskFailures + entityDiskFailures + opDiskFailures;
+
             var spillHealth = CapacityHealthLevel.Healthy;
-            if (totalPendingSpill > 0)
+            if (totalDiskFailures > 0)
+            {
+                spillHealth = CapacityHealthLevel.Critical;
+                alerts.Add($"检测到工控机本地磁盘应急落盘写入失败 (累计 {totalDiskFailures:N0} 次)，可能存在写保护、存储爆满或 I/O 故障，严重威胁铁证零丢失！");
+            }
+            else if (totalPendingSpill > 0)
             {
                 spillHealth = CapacityHealthLevel.Critical;
                 alerts.Add($"检测到核心审计特权证据正处于应急溢流落盘待消费状态 (当前未消费溢出: {totalPendingSpill:N0} 条, 累计保全: {totalSpill:N0} 条)，请排查工控机写库吞吐与通道负载！");
@@ -231,6 +241,7 @@ namespace SIASUN.RCS.Monitor
                 PendingSpillCount = totalPendingSpill,
                 LiveStreamPendingCount = liveStreamDepth,
                 PrivilegeSpillCount = totalSpill,
+                SpillDiskWriteFailures = totalDiskFailures,
                 PrivilegeSpillHealth = spillHealth,
                 GovernorCurrentEps = currentEps,
                 GovernorDropCount = droppedCount,

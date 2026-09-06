@@ -17,8 +17,15 @@
   - API 审计通道（`ApiAuditLogChannel`）、实体审计通道（`EntityAuditLogChannel`）、调度员操作通道（`OperationLogChannelManager` / `OperationLogRecorder`）全面接入 `EvidenceSpillBuffer<T>`。
   - 排队阻塞超时时自动落盘至 `App_Data/spill/{buffer}_spill_{yyyyMMdd}.jsonl`，坚决杜绝任何关键铁证静默丢弃。
 - [x] **本地磁盘溢流启动自愈与断电保全**：
+- [x] **全特权轨道洪峰与阻塞下绝对零丢弃（双端 Ingress + Egress 闭环）**：
+  - **入端保全（Ingress）**：API 审计通道（`ApiAuditLogChannel`）、实体审计通道（`EntityAuditLogChannel`）、调度员操作通道（`OperationLogChannelManager` / `OperationLogRecorder`）全面接入 `EvidenceSpillBuffer<T>`。排队阻塞超时（500ms~2s）时自动溢出落盘至 `App_Data/spill/{buffer}_spill_{yyyyMMdd}.jsonl`，坚决杜绝入端丢弃。
+  - **出端保全（Egress At-Least-Once）**：消费端执行持久化（`IApiAuditLogStore.SaveBatchAsync`、`IEntityAuditLogStore.SaveBatchAsync`、`IRepository<OperationLog>.InsertAsync`）遭遇数据库故障抛出异常时，严禁静默 `batch.Clear()` 灭证，而是立即将批次中的核心特权铁证（4xx/5xx API、AgvTask/AgvVehicle 实体变更、调度员操作）回灌至 `SpillBuffer` 并同步应急落盘保全，同时施加指数退避，彻底实现双端零静默丢证。
+- [x] **本地磁盘溢流启动自愈、断电保全与指标去虚高**：
   - `EvidenceSpillBuffer<T>.RecoverDiskSpills()` 在消费者（`ApiAuditLogConsumer`、`EntityAuditLogConsumer`、`OperationLogPersistenceWorker`）启动时自动执行。
   - 读取未入库的 `.jsonl` 溢流记录重入内存待处理队列，并原子重命名为 `.replayed`，杜绝重复落库与崩溃数据丢失。
+  - 磁盘恢复条目独立累计至 `TotalRecoveredCount`，严禁重复累加到 `TotalSpillCount`，彻底消除指标虚高。
+- [x] **`PriorityChannelReader<T>` 信号量无缝唤醒**：
+  - `WaitToReadAsync` 通过 `Task.WhenAny` 同步监听特权通道、常规通道以及 `EvidenceSpillBuffer.WaitForItemAsync(ct)`，一旦有紧急溢出进入缓冲区，消费者立即响应并优先捞取消费。
 - [x] **`EntityAuditInterceptor` 写入逻辑去重与保障**：
   - 清理重复的 `TryWrite` 检查代码，统一走标准写入并在必要时回退至 `WriteAsync(500ms)` 与 `SpillBuffer`。
 - [x] **LiveStream 特权与常规推流双轨隔离**：
@@ -26,6 +33,9 @@
 - [x] **容量观测 Telemetry 与健康状态生命周期**：
   - 暴露 `ApiChannelDepth`、`EntityChannelDepth`、`OperationChannelDepth`、`PendingSpillCount`、`LiveStreamPendingCount`、`PrivilegeSpillCount`、`GovernorCurrentEps`、`GovernorDropCount`。
   - 当 `PendingSpillCount > 0`（存在未消化的应急溢流）时严格升级为 `Critical`；当历史溢流全部恢复入库且无积压（`PendingSpillCount == 0 && PrivilegeSpillCount > 0`）时转为 `Warning`，避免系统永久锁定在 Critical 告警状态。
+- [x] **容量观测 Telemetry、磁盘故障感知与健康状态生命周期**：
+  - 暴露 `ApiChannelDepth`、`EntityChannelDepth`、`OperationChannelDepth`、`PendingSpillCount`、`LiveStreamPendingCount`、`PrivilegeSpillCount`、`SpillDiskWriteFailures`、`GovernorCurrentEps`、`GovernorDropCount`。
+  - 当 `SpillDiskWriteFailures > 0`（磁盘写保护或 I/O 故障）或 `PendingSpillCount > 0`（存在未消化的应急溢流）时严格升级为 `Critical`；当历史溢流全部恢复入库且无积压（`PendingSpillCount == 0 && PrivilegeSpillCount > 0`）时转为 `Warning`，避免系统永久锁定在 Critical 告警状态。
 
 ### 2. Standards 关键项
 - [x] **XML 文档注释 100% 覆盖**：

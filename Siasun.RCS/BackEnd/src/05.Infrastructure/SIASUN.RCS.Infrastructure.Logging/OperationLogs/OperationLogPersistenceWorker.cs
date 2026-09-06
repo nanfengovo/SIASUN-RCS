@@ -19,6 +19,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
         private readonly OperationLogChannelManager _channelManager;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<OperationLogPersistenceWorker> _logger;
+        private int _consecutiveFailureCount;
 
         /// <summary>
         /// 构造函数注入通道管理器、作用域工厂与日志组件
@@ -104,11 +105,17 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
                 await repository.InsertAsync(log);
 
                 await uow.CompleteAsync();
+                _consecutiveFailureCount = 0;
             }
             catch (Exception ex)
             {
-                // 落盘失败（例如数据库不可用）不能抛出异常导致 Worker 停止，打本地错误日志
-                _logger.LogError(ex, "Failed to persist OperationLog for action: {Action}", log?.Action);
+                _consecutiveFailureCount++;
+                // 数据库持久化失败时，回灌 SpillBuffer 应急落盘，避免调度员操作铁证静默灭失
+                _logger.LogError(ex, "Failed to persist OperationLog for action: {Action} (Consecutive: {Count}), enqueuing to SpillBuffer for zero-loss", log.Action, _consecutiveFailureCount);
+                _channelManager.SpillBuffer.Enqueue(log);
+
+                var delayMs = Math.Min(1000 * _consecutiveFailureCount, 5000);
+                await Task.Delay(delayMs);
             }
         }
     }

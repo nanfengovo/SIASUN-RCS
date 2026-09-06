@@ -61,8 +61,21 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
             var tPriority = _priorityReader.WaitToReadAsync(cancellationToken).AsTask();
             var tNormal = _normalReader.WaitToReadAsync(cancellationToken).AsTask();
 
-            var completed = await Task.WhenAny(tPriority, tNormal);
-            return await completed;
+            if (_spillBuffer != null)
+            {
+                var tSpill = _spillBuffer.WaitForItemAsync(cancellationToken);
+                var completedTask = await Task.WhenAny(tPriority, tNormal, tSpill);
+                if (completedTask == tSpill)
+                {
+                    return true;
+                }
+                return await (Task<bool>)completedTask;
+            }
+            else
+            {
+                var completedTask = await Task.WhenAny(tPriority, tNormal);
+                return await completedTask;
+            }
         }
 
         /// <inheritdoc />

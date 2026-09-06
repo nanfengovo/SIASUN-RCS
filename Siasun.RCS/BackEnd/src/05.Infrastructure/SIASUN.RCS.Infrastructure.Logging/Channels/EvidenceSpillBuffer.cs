@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SIASUN.RCS.Infrastructure.Logging.Channels
 {
@@ -15,9 +17,11 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
     public class EvidenceSpillBuffer<T>
     {
         private readonly ConcurrentQueue<T> _inMemoryQueue = new();
+        private readonly SemaphoreSlim _signal = new(0, int.MaxValue);
         private readonly string _bufferName;
         private readonly string _spillDir;
         private long _totalSpillCount;
+        private long _totalRecoveredCount;
         private long _spillDiskWriteFailures;
         private readonly object _diskLock = new();
 
@@ -25,6 +29,11 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
         /// 累计溢出保全事件总数（系统自治观测核心指标，大于 0 即意味着发生过通道饱和与紧急溢出）
         /// </summary>
         public long TotalSpillCount => Interlocked.Read(ref _totalSpillCount);
+
+        /// <summary>
+        /// 累计从磁盘自愈恢复的溢出事件数量
+        /// </summary>
+        public long TotalRecoveredCount => Interlocked.Read(ref _totalRecoveredCount);
 
         /// <summary>
         /// 累计应急落盘磁盘写入失败次数（大于 0 说明工控机本地磁盘写保护、爆满或 I/O 故障）
@@ -54,6 +63,21 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
 
         /// <summary>
         /// 将一条在规定超时内未入队的特权铁证紧急写入溢出环并同步落盘保全
+        /// 异步等待直至有新的溢出事件入队
+        /// </summary>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>等待任务</returns>
+        public Task WaitForItemAsync(CancellationToken cancellationToken = default)
+        {
+            if (!_inMemoryQueue.IsEmpty)
+            {
+                return Task.CompletedTask;
+            }
+            return _signal.WaitAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// 将一条在规定超时内未入队或写入持久层失败的特权铁证紧急写入溢出环并同步落盘保全
         /// </summary>
         /// <param name="item">特权证据实体</param>
         public void Enqueue(T item)
@@ -63,6 +87,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
             // 1. 压入内存紧急消费队列，等待后台消费者优先捞取
             _inMemoryQueue.Enqueue(item);
             Interlocked.Increment(ref _totalSpillCount);
+            _signal.Release();
 
             // 2. 应急本地磁盘保全（防止极端断电/崩溃导致内存中未消费的 Spill 丢失）
             try
@@ -89,13 +114,31 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
         }
 
         /// <summary>
+        /// 批量将一组在写入持久化存储时发生异常的特权铁证紧急回灌溢出环并落盘保全
+        /// </summary>
+        /// <param name="items">特权证据条目集合</param>
+        public void EnqueueRange(IEnumerable<T> items)
+        {
+            if (items == null) return;
+            foreach (var item in items)
+            {
+                Enqueue(item);
+            }
+        }
+
+        /// <summary>
         /// 尝试从溢出环中拉取一条待消费的特权铁证
         /// </summary>
         /// <param name="item">取出的证据实体</param>
         /// <returns>是否存在待消费的溢出实体</returns>
         public bool TryDequeue(out T item)
         {
-            return _inMemoryQueue.TryDequeue(out item!);
+            if (_inMemoryQueue.TryDequeue(out item!))
+            {
+                _signal.Wait(0);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -136,7 +179,6 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
                                 if (item != null)
                                 {
                                     _inMemoryQueue.Enqueue(item);
-                                    Interlocked.Increment(ref _totalSpillCount);
                                     recoveredCount++;
                                 }
                             }
@@ -153,6 +195,12 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
                             File.Delete(replayedFile);
                         }
                         File.Move(file, replayedFile);
+                    }
+
+                    if (recoveredCount > 0)
+                    {
+                        Interlocked.Add(ref _totalRecoveredCount, recoveredCount);
+                        _signal.Release(recoveredCount);
                     }
                 }
                 catch (Exception ex)

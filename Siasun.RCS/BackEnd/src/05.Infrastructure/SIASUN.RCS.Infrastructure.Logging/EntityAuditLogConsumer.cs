@@ -20,6 +20,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
         private readonly ILogger<EntityAuditLogConsumer> _logger;
         private readonly Diagnostics.SignalR.IDiagnosticLiveStreamBroker? _liveStreamBroker;
         private readonly SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? _trafficGovernor;
+        private int _consecutiveFailureCount;
 
         /// <summary>
         /// 构造函数注入所需存储、日志与限流依赖
@@ -60,6 +61,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
             }
 
             var batch = new List<EntityAuditLogEntry>(100);
+            var messageBatch = new List<EntityAuditLogMessage>(100);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -130,13 +132,37 @@ namespace SIASUN.RCS.Infrastructure.Logging
                                 });
                             }
 
+                            messageBatch.Add(msg);
                             batch.Add(entry);
                         }
 
                         if (batch.Count > 0)
                         {
-                            await _store.SaveBatchAsync(batch, stoppingToken);
-                            batch.Clear();
+                            try
+                            {
+                                await _store.SaveBatchAsync(batch, stoppingToken);
+                                _consecutiveFailureCount = 0;
+                            }
+                            catch (Exception saveEx)
+                            {
+                                _consecutiveFailureCount++;
+                                _logger.LogError(saveEx, "异步批量持久化实体审计日志落库失败 (连续失败: {Count})，立即将批次中特权铁证回灌 SpillBuffer 应急落盘保全，坚决杜绝静默灭证", _consecutiveFailureCount);
+
+                                foreach (var msg in messageBatch)
+                                {
+                                    if (_channel.IsPrivilegedEntity(msg.EntityName))
+                                    {
+                                        _channel.SpillBuffer.Enqueue(msg);
+                                    }
+                                }
+
+                                throw;
+                            }
+                            finally
+                            {
+                                batch.Clear();
+                                messageBatch.Clear();
+                            }
                         }
                     }
                 }
@@ -146,9 +172,11 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "异步批量持久化实体审计日志发生异常");
+                    _logger.LogError(ex, "异步批量持久化实体审计日志发生异常，进入退避等待");
                     batch.Clear(); // 防死循环
-                    await Task.Delay(1000, stoppingToken);
+                    messageBatch.Clear();
+                    var delayMs = Math.Min(1000 * Math.Max(1, _consecutiveFailureCount), 5000);
+                    await Task.Delay(delayMs, stoppingToken);
                 }
             }
         }

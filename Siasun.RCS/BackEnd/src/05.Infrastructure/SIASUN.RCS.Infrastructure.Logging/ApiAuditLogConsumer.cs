@@ -19,6 +19,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
         private readonly IApiAuditLogStore _store;
 
         private readonly ILogger<ApiAuditLogConsumer> _logger;
+        private int _consecutiveFailureCount;
 
         public ApiAuditLogConsumer(ApiAuditLogChannel channel, IApiAuditLogStore store, ILogger<ApiAuditLogConsumer> logger)
         {
@@ -83,8 +84,31 @@ namespace SIASUN.RCS.Infrastructure.Logging
                         // 满 50 条或满 2 秒，执行批量落库
                         if (batch.Count > 0)
                         {
-                            await _store.SaveBatchAsync(batch, stoppingToken);
-                            batch.Clear();
+                            try
+                            {
+                                await _store.SaveBatchAsync(batch, stoppingToken);
+                                _consecutiveFailureCount = 0;
+                            }
+                            catch (Exception saveEx)
+                            {
+                                _consecutiveFailureCount++;
+                                _logger.LogError(saveEx, "异步批量持久化报文日志落库失败 (连续失败: {Count})，立即将批次中特权铁证回灌 SpillBuffer 应急落盘保全，坚决杜绝静默灭证", _consecutiveFailureCount);
+
+                                // 回灌特权条目（状态码异常、未处理异常、特权端点），零静默丢失！
+                                foreach (var item in batch)
+                                {
+                                    if (_channel.IsPrivilegedEntry(item))
+                                    {
+                                        _channel.SpillBuffer.Enqueue(item);
+                                    }
+                                }
+
+                                throw; // 重新抛出触发外层 catch 的退避延时保护
+                            }
+                            finally
+                            {
+                                batch.Clear();
+                            }
                         }
                     }
                 }
@@ -96,8 +120,11 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 {
                     _logger.LogError(ex, "异步批量持久化报文日志发生异常");
                     // 发生异常时清空批次，避免一直重复引发错误
+                    _logger.LogError(ex, "异步批量持久化报文日志发生异常，进入退避等待");
                     batch.Clear();
                     await Task.Delay(1000, stoppingToken);
+                    var delayMs = Math.Min(1000 * Math.Max(1, _consecutiveFailureCount), 5000);
+                    await Task.Delay(delayMs, stoppingToken);
                 }
             }
         }

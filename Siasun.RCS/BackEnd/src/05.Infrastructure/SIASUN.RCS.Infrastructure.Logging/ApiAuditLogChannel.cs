@@ -31,6 +31,11 @@ namespace SIASUN.RCS.Infrastructure.Logging
         public int PendingSpillCount => _spillBuffer.PendingSpillCount;
 
         /// <summary>
+        /// 累计应急落盘本地磁盘写入失败次数（大于 0 意味着磁盘写保护或 I/O 故障）
+        /// </summary>
+        public long SpillDiskWriteFailures => _spillBuffer.SpillDiskWriteFailures;
+
+        /// <summary>
         /// 特权通道当前堆积队列深度
         /// </summary>
         public int PriorityQueueCount => _priorityChannel.Reader.Count;
@@ -156,7 +161,12 @@ namespace SIASUN.RCS.Infrastructure.Logging
         /// </summary>
         public ChannelReader<ApiAuditLogEntry> Reader => _reader;
 
-        private bool IsPrivilegedEntry(ApiAuditLogEntry entry)
+        /// <summary>
+        /// 判定一条 API 报文条目是否属于关键特权铁证
+        /// </summary>
+        /// <param name="entry">报文审计条目</param>
+        /// <returns>是否属于特权条目</returns>
+        public bool IsPrivilegedEntry(ApiAuditLogEntry entry)
         {
             return _privilegePolicy.IsPrivileged(
                 path: entry.Path,

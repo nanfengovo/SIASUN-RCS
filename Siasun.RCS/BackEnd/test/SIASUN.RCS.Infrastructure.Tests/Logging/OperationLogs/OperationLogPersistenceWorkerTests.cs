@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +9,6 @@ using SIASUN.RCS.Logs.OperatorLog;
 using SIASUN.RCS.Logs.OperatorLogs;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Uow;
-using Xunit;
 
 namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
 {
@@ -129,6 +127,67 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
             channelManager.PendingSpillCount.ShouldBe(0);
             await repository.Received(1).InsertAsync(spillLog);
             await uow.Received(1).CompleteAsync();
+        }
+
+        [Fact]
+        public async Task ExecuteAsync_WhenRepositoryThrows_ShouldReEnqueueToSpillBufferAndPreventLoss()
+        {
+            // Arrange
+            var channelManager = new OperationLogChannelManager();
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            var logger = Substitute.For<ILogger<OperationLogPersistenceWorker>>();
+
+            var scope = Substitute.For<IServiceScope>();
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            var uowManager = Substitute.For<IUnitOfWorkManager>();
+            var uow = Substitute.For<IUnitOfWork>();
+            var repository = Substitute.For<IRepository<OperationLog, Guid>>();
+
+            scopeFactory.CreateScope().Returns(scope);
+            scope.ServiceProvider.Returns(serviceProvider);
+            serviceProvider.GetService(typeof(IUnitOfWorkManager)).Returns(uowManager);
+            serviceProvider.GetService(typeof(IRepository<OperationLog, Guid>)).Returns(repository);
+            uowManager.Begin(Arg.Any<AbpUnitOfWorkOptions>(), Arg.Any<bool>()).Returns(uow);
+
+            // 模拟数据库故障抛异常
+            repository.InsertAsync(Arg.Any<OperationLog>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<OperationLog>(new InvalidOperationException("DB connection failure")));
+
+            var worker = new OperationLogPersistenceWorker(channelManager, scopeFactory, logger);
+
+            var log = new OperationLog(
+                id: Guid.NewGuid(),
+                operatorType: OperatorType.User,
+                userId: Guid.NewGuid(),
+                userName: "OpUser",
+                clientIp: "127.0.0.1",
+                correlationId: "db-fail-123",
+                module: "Dispatch",
+                action: "CriticalIntervention",
+                targetType: "Task",
+                targetId: "T-Fail",
+                status: OperationLogStatus.Success,
+                description: "Intervene",
+                errorMessage: null
+            );
+
+            await channelManager.Channel.Writer.WriteAsync(log);
+
+            // Act
+            var cts = new CancellationTokenSource();
+            var executeTask = worker.StartAsync(cts.Token);
+
+            await Task.Delay(200);
+
+            cts.Cancel();
+            await executeTask;
+
+            // Assert: 验证落库失败后，该操作日志未静默灭失，而是被回灌至 SpillBuffer
+            channelManager.PendingSpillCount.ShouldBe(1);
+            channelManager.SpillBuffer.TryDequeue(out var recoveredLog).ShouldBeTrue();
+            recoveredLog.ShouldNotBeNull();
+            recoveredLog.CorrelationId.ShouldBe("db-fail-123");
+            recoveredLog.Action.ShouldBe("CriticalIntervention");
         }
     }
 }

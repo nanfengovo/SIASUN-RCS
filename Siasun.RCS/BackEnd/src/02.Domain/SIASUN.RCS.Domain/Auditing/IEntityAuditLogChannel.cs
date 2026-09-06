@@ -32,6 +32,11 @@ namespace SIASUN.RCS.Auditing
         int PendingSpillCount { get; }
 
         /// <summary>
+        /// 累计应急落盘本地磁盘写入失败次数（大于 0 意味着磁盘写保护或 I/O 故障）
+        /// </summary>
+        long SpillDiskWriteFailures { get; }
+
+        /// <summary>
         /// 当前综合队列等待深度（含特权、常规与溢出环待消费数）
         /// </summary>
         int TotalQueueCount { get; }

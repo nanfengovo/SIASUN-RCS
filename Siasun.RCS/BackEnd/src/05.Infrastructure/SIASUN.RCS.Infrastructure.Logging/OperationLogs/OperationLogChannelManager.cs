@@ -34,6 +34,11 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
         public int PendingSpillCount => SpillBuffer.PendingSpillCount;
 
         /// <summary>
+        /// 累计应急落盘本地磁盘写入失败次数（大于 0 意味着磁盘写保护或 I/O 故障）
+        /// </summary>
+        public long SpillDiskWriteFailures => SpillBuffer.SpillDiskWriteFailures;
+
+        /// <summary>
         /// 综合队列当前积压深度（含通道内部积压与未消费溢出环条目数）
         /// </summary>
         public int TotalQueueCount => Channel.Reader.Count + SpillBuffer.PendingSpillCount;
