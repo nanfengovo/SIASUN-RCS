@@ -111,80 +111,94 @@ namespace SIASUN.RCS.Infrastructure.Logging
             string? responseBody = null;
             Exception? caughtException = null;
 
-            try
+            using (SIASUN.RCS.Diagnostics.RcsTraceContext.SetScoped(traceId))
             {
-                await _next(context);
-            }
-            catch (Exception ex)
-            {
-                caughtException = ex;
-                throw;
-            }
-            finally
-            {
-                sw.Stop();
-                memStream.Position = 0;
-
-                using var respReader = new StreamReader(memStream, Encoding.UTF8, leaveOpen: true);
-                responseBody = await respReader.ReadToEndAsync();
-                memStream.Position = 0;
-
-                await memStream.CopyToAsync(originalBodyStream);
-                context.Response.Body = originalBodyStream;
-
-                // 解析 HttpMethod 枚举
-                _ = Enum.TryParse<HttpMethod>(context.Request.Method, true, out var methodEnum);
-
-                var maskedRequestBody = AuditDataMasker.Mask(TruncateBody(requestBody));
-                var maskedResponseBody = AuditDataMasker.Mask(TruncateBody(responseBody));
-
-                var isErr = context.Response.StatusCode >= 500 || caughtException != null;
-                var isWarn = context.Response.StatusCode >= 400 && context.Response.StatusCode < 500;
-                var apiLevel = isErr ? "Error" : (isWarn ? "Warning" : "Information");
-
-                // L4 自适应限流保盘防护：在突发洪峰或高频请求风暴时，对常规成功报文进行平滑降采样
-                // 铁律：所有 4xx/5xx 异常（如 401 拒录、500 崩溃）与调度业务 100% 绝对入库落盘
-                var shouldAdmitApi = true;
-                if (_trafficGovernor != null)
+                try
                 {
-                    var decision = _trafficGovernor.ShouldAdmit(peerName, apiLevel);
-                    shouldAdmitApi = decision.IsAdmitted;
+                    await _next(context);
                 }
-
-                if (shouldAdmitApi)
+                catch (Exception ex)
                 {
-                    // 5. 组装实体并无阻塞推入 Channel
-                    _channel.TryWrite(new ApiAuditLogEntry
+                    caughtException = ex;
+                    throw;
+                }
+                finally
+                {
+                    sw.Stop();
+                    memStream.Position = 0;
+
+                    using var respReader = new StreamReader(memStream, Encoding.UTF8, leaveOpen: true);
+                    responseBody = await respReader.ReadToEndAsync();
+                    memStream.Position = 0;
+
+                    await memStream.CopyToAsync(originalBodyStream);
+                    context.Response.Body = originalBodyStream;
+
+                    // 解析 HttpMethod 枚举
+                    _ = Enum.TryParse<HttpMethod>(context.Request.Method, true, out var methodEnum);
+
+                    var maskedRequestBody = AuditDataMasker.Mask(TruncateBody(requestBody));
+                    var maskedResponseBody = AuditDataMasker.Mask(TruncateBody(responseBody));
+
+                    var isErr = context.Response.StatusCode >= 500 || caughtException != null;
+                    var isWarn = context.Response.StatusCode >= 400 && context.Response.StatusCode < 500;
+                    var apiLevel = isErr ? "Error" : (isWarn ? "Warning" : "Information");
+
+                    // L4 自适应限流保盘防护：在突发洪峰或高频请求风暴时，对常规成功报文进行平滑降采样
+                    // 铁律：所有 4xx/5xx 异常（如 401 拒录、500 崩溃）与调度业务 100% 绝对入库落盘
+                    var shouldAdmitApi = true;
+                    if (_trafficGovernor != null)
                     {
-                        TraceId = traceId,
-                        Direction = Direction.Inbound,
-                        Peer = peerName,
-                        HttpMethod = methodEnum,
-                        Path = path,
-                        StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
-                        ElapsedMs = sw.ElapsedMilliseconds,
-                        RequestBody = maskedRequestBody,
-                        ResponseBody = maskedResponseBody,
-                        ClientIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
-                        ClientName = context.User.Identity?.Name,
-                        Exception = caughtException?.Message
-                    });
-                }
+                        var category = ResolveAuditCategory(path, peerName);
+                        var decision = _trafficGovernor.ShouldAdmit(category, apiLevel);
+                        shouldAdmitApi = decision?.IsAdmitted ?? true;
+                    }
 
-                if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
-                {
-                    _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
+                    if (shouldAdmitApi)
                     {
-                        Timestamp = DateTime.UtcNow,
-                        Track = "API",
-                        Level = apiLevel,
-                        Source = string.IsNullOrEmpty(peerName) ? "API" : peerName,
-                        Title = $"{context.Request.Method} {context.Request.Path} ({context.Response.StatusCode})",
-                        Summary = $"耗时: {sw.ElapsedMilliseconds}ms, 客户端: {context.Connection.RemoteIpAddress}",
-                        TraceId = traceId
-                    });
+                        // 5. 组装实体并无阻塞推入 Channel
+                        _channel.TryWrite(new ApiAuditLogEntry
+                        {
+                            TraceId = traceId,
+                            Direction = Direction.Inbound,
+                            Peer = peerName,
+                            HttpMethod = methodEnum,
+                            Path = path,
+                            StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
+                            ElapsedMs = sw.ElapsedMilliseconds,
+                            RequestBody = maskedRequestBody,
+                            ResponseBody = maskedResponseBody,
+                            ClientIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+                            ClientName = context.User.Identity?.Name,
+                            Exception = caughtException?.Message
+                        });
+                    }
+
+                    if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
+                    {
+                        _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
+                        {
+                            Timestamp = DateTime.UtcNow,
+                            Track = "API",
+                            Level = apiLevel,
+                            Source = string.IsNullOrEmpty(peerName) ? "API" : peerName,
+                            Title = $"{context.Request.Method} {context.Request.Path} ({context.Response.StatusCode})",
+                            Summary = $"耗时: {sw.ElapsedMilliseconds}ms, 客户端: {context.Connection.RemoteIpAddress}",
+                            TraceId = traceId
+                        });
+                    }
                 }
             }
+        }
+
+        private static string ResolveAuditCategory(string path, string peerName)
+        {
+            if (path.Contains("/dispatch", StringComparison.OrdinalIgnoreCase)) return "Dispatch";
+            if (path.Contains("/task", StringComparison.OrdinalIgnoreCase)) return "AgvTask";
+            if (path.Contains("/vehicle", StringComparison.OrdinalIgnoreCase)) return "AgvVehicle";
+            if (path.Contains("/operation", StringComparison.OrdinalIgnoreCase)) return "Operation";
+
+            return peerName;
         }
 
         private string ResolveTraceId(HttpContext context)

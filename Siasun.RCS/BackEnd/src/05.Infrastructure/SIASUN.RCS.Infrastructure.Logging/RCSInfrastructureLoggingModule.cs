@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IO;
 using Volo.Abp.Modularity;
@@ -32,10 +33,15 @@ namespace SIASUN.RCS.Infrastructure.Logging
             context.Services.AddHostedService<ApiAuditLogConsumer>();
             context.Services.AddHostedService<EntityAuditLogConsumer>();
 
-            // 注册 SignalR 实时推流中台
+            // 注册 SignalR 实时推流中台（支持规范 DiagnosticLiveStream 与 SignalRDiagnostics 配置驱动）
             var configuration = context.Services.GetConfiguration();
-            context.Services.Configure<Diagnostics.SignalR.SignalRDiagnosticsOptions>(
-                configuration.GetSection("SignalRDiagnostics"));
+            context.Services.Configure<Diagnostics.SignalR.SignalRDiagnosticsOptions>(options =>
+            {
+                configuration.GetSection("DiagnosticLiveStream").Bind(options);
+                configuration.GetSection("SignalRDiagnostics").Bind(options);
+            });
+            context.Services.Configure<SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions>(
+                configuration.GetSection(SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions.SectionName));
             context.Services.AddSignalR();
             context.Services.AddSingleton<Diagnostics.SignalR.IDiagnosticLiveStreamBroker, Diagnostics.SignalR.DiagnosticLiveStreamBroker>();
             context.Services.AddHostedService<Diagnostics.SignalR.DiagnosticLiveStreamWorker>();

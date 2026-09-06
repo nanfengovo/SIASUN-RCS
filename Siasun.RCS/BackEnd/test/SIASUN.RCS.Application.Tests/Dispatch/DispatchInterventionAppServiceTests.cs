@@ -1,12 +1,18 @@
 using System;
+using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using NSubstitute;
 using Shouldly;
 using SIASUN.RCS.Dispatch;
 using SIASUN.RCS.Dispatch.Dtos;
 using SIASUN.RCS.Interfaces.OperationLogs;
+using SIASUN.RCS.Logs.OperatorLog;
 using SIASUN.RCS.Logs.OperatorLogs;
+using SIASUN.RCS.Tasks;
+using SIASUN.RCS.Vehicles;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Xunit;
 
 namespace SIASUN.RCS.Application.Tests.Dispatch
@@ -14,16 +20,17 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
     /// <summary>
     /// 调度员人工干预应用服务单元测试
     /// 验证任务取消、强制完结、人工指派车辆、车辆复位等关键干预操作均 100% 记录责任审计
+    /// 严格验证实体不存在时记录失败审计并抛出异常，绝不捏造状态
     /// </summary>
     public class DispatchInterventionAppServiceTests
     {
         private readonly IOperationLogRecorder _opRecorder;
-        private readonly DispatchInterventionAppService _appService;
+        private readonly DispatchInterventionAppService _standaloneAppService;
 
         public DispatchInterventionAppServiceTests()
         {
             _opRecorder = Substitute.For<IOperationLogRecorder>();
-            _appService = new DispatchInterventionAppService(_opRecorder);
+            _standaloneAppService = new DispatchInterventionAppService(_opRecorder);
         }
 
         [Fact]
@@ -37,12 +44,12 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
 
             await Should.ThrowAsync<UserFriendlyException>(async () =>
             {
-                await _appService.CancelTaskAsync(input);
+                await _standaloneAppService.CancelTaskAsync(input);
             });
         }
 
         [Fact]
-        public async Task CancelTaskAsync_WithValidInput_Should_Succeed_And_RecordOperationLog()
+        public async Task CancelTaskAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
         {
             // Arrange
             var input = new CancelTaskInput
@@ -53,7 +60,7 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _appService.CancelTaskAsync(input);
+            var result = await _standaloneAppService.CancelTaskAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
@@ -70,11 +77,95 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 ctx.BeforeState == "Running" &&
                 ctx.AfterState == "Canceled" &&
                 ctx.Reason == input.Reason
-            ));
+            ), OperationLogStatus.Success, null);
         }
 
         [Fact]
-        public async Task ForceEndTaskAsync_WithValidInput_Should_Succeed_And_RecordOperationLog()
+        public async Task CancelTaskAsync_WhenTaskNotFoundInRepo_Should_RecordFailure_And_ThrowException()
+        {
+            // Arrange
+            var taskRepo = Substitute.For<IRepository<AgvTask, Guid>>();
+            taskRepo.FindAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(null));
+
+            var appService = new DispatchInterventionAppService(_opRecorder, taskRepo);
+
+            var input = new CancelTaskInput
+            {
+                TaskId = "NON-EXISTENT-TASK",
+                Reason = "任务超时人工取消"
+            };
+
+            // Act & Assert
+            var ex = await Should.ThrowAsync<UserFriendlyException>(async () =>
+            {
+                await appService.CancelTaskAsync(input);
+            });
+            ex.Message.ShouldContain("未找到任务");
+
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.Module == "Dispatch" &&
+                ctx.Action == "CancelTask" &&
+                ctx.TargetId == "NON-EXISTENT-TASK" &&
+                ctx.BeforeState == "NonExistent" &&
+                ctx.AfterState == "NonExistent"
+            ), OperationLogStatus.Failed, Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ForceEndTaskAsync_WhenTaskNotFoundInRepo_Should_RecordFailure_And_ThrowException()
+        {
+            // Arrange
+            var taskRepo = Substitute.For<IRepository<AgvTask, Guid>>();
+            var appService = new DispatchInterventionAppService(_opRecorder, taskRepo);
+
+            var input = new ForceEndTaskInput
+            {
+                TaskId = "NON-EXISTENT-TASK",
+                Reason = "强制完结"
+            };
+
+            // Act & Assert
+            var ex = await Should.ThrowAsync<UserFriendlyException>(async () =>
+            {
+                await appService.ForceEndTaskAsync(input);
+            });
+            ex.Message.ShouldContain("未找到任务");
+
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.Action == "ForceEndTask" &&
+                ctx.BeforeState == "NonExistent"
+            ), OperationLogStatus.Failed, Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ResetVehicleAsync_WhenVehicleNotFoundInRepo_Should_RecordFailure_And_ThrowException()
+        {
+            // Arrange
+            var vehicleRepo = Substitute.For<IRepository<AgvVehicle, Guid>>();
+            var appService = new DispatchInterventionAppService(_opRecorder, vehicleRepository: vehicleRepo);
+
+            var input = new ResetVehicleInput
+            {
+                AgvId = "AGV-UNKNOWN",
+                Reason = "复位"
+            };
+
+            // Act & Assert
+            var ex = await Should.ThrowAsync<UserFriendlyException>(async () =>
+            {
+                await appService.ResetVehicleAsync(input);
+            });
+            ex.Message.ShouldContain("未找到车辆");
+
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.Action == "ResetVehicle" &&
+                ctx.BeforeState == "NonExistent"
+            ), OperationLogStatus.Failed, Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ForceEndTaskAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
         {
             // Arrange
             var input = new ForceEndTaskInput
@@ -85,7 +176,7 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _appService.ForceEndTaskAsync(input);
+            var result = await _standaloneAppService.ForceEndTaskAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
@@ -100,11 +191,11 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 ctx.BeforeState == "Running" &&
                 ctx.AfterState == "Succeeded" &&
                 ctx.Reason == input.Reason
-            ));
+            ), OperationLogStatus.Success, null);
         }
 
         [Fact]
-        public async Task AssignVehicleAsync_WithValidInput_Should_Succeed_And_RecordOperationLog()
+        public async Task AssignVehicleAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
         {
             // Arrange
             var input = new AssignVehicleInput
@@ -115,7 +206,7 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _appService.AssignVehicleAsync(input);
+            var result = await _standaloneAppService.AssignVehicleAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
@@ -130,11 +221,11 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 ctx.BeforeState == "Unassigned" &&
                 ctx.AfterState == "Assigned:AGV-03" &&
                 ctx.Reason == input.Reason
-            ));
+            ), OperationLogStatus.Success, null);
         }
 
         [Fact]
-        public async Task ResetVehicleAsync_WithValidInput_Should_Succeed_And_RecordOperationLog()
+        public async Task ResetVehicleAsync_WhenStandalone_Should_Succeed_And_RecordOperationLog()
         {
             // Arrange
             var input = new ResetVehicleInput
@@ -144,7 +235,7 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             };
 
             // Act
-            var result = await _appService.ResetVehicleAsync(input);
+            var result = await _standaloneAppService.ResetVehicleAsync(input);
 
             // Assert
             result.Success.ShouldBeTrue();
@@ -161,8 +252,7 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 ctx.BeforeState == "Error" &&
                 ctx.AfterState == "Idle" &&
                 ctx.Reason == input.Reason
-            ));
+            ), OperationLogStatus.Success, null);
         }
     }
 }
-

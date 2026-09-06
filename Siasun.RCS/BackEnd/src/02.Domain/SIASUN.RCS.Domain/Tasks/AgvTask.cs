@@ -192,10 +192,6 @@ namespace SIASUN.RCS.Tasks
 
             AssignedVehicleId = vehicleId;
             AssignedVehicleCode = Check.NotNullOrWhiteSpace(vehicleCode, nameof(vehicleCode));
-            if (!string.IsNullOrWhiteSpace(reason))
-            {
-                FailureReason = reason;
-            }
         }
 
         /// <summary>
@@ -213,6 +209,15 @@ namespace SIASUN.RCS.Tasks
             Status = AgvTaskStatus.Succeeded;
             EndTime = DateTime.UtcNow;
             WaitingEvent = null;
+
+            AddLocalEvent(new TaskLifecycleEndedEvent(
+                Id,
+                TaskCode,
+                Status,
+                null,
+                TraceId,
+                AssignedVehicleCode,
+                EndTime.Value));
         }
 
         /// <summary>
@@ -225,6 +230,15 @@ namespace SIASUN.RCS.Tasks
             FailureReason = Check.NotNullOrWhiteSpace(reason, nameof(reason));
             EndTime = DateTime.UtcNow;
             WaitingEvent = null;
+
+            AddLocalEvent(new TaskLifecycleEndedEvent(
+                Id,
+                TaskCode,
+                Status,
+                FailureReason,
+                TraceId,
+                AssignedVehicleCode,
+                EndTime.Value));
         }
 
         /// <summary>
@@ -243,6 +257,15 @@ namespace SIASUN.RCS.Tasks
             FailureReason = Check.NotNullOrWhiteSpace(reason, nameof(reason));
             EndTime = DateTime.UtcNow;
             WaitingEvent = null;
+
+            AddLocalEvent(new TaskLifecycleEndedEvent(
+                Id,
+                TaskCode,
+                Status,
+                FailureReason,
+                TraceId,
+                AssignedVehicleCode,
+                EndTime.Value));
         }
 
         /// <summary>
@@ -255,6 +278,15 @@ namespace SIASUN.RCS.Tasks
             FailureReason = $"强制完结: {reason}";
             EndTime = DateTime.UtcNow;
             WaitingEvent = null;
+
+            AddLocalEvent(new TaskLifecycleEndedEvent(
+                Id,
+                TaskCode,
+                Status,
+                FailureReason,
+                TraceId,
+                AssignedVehicleCode,
+                EndTime.Value));
         }
     }
 }

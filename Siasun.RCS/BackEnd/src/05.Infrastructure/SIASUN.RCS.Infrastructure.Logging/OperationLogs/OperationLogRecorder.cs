@@ -95,7 +95,22 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
                 agvId: agvId
             );
 
-            _channelManager.Channel.Writer.TryWrite(log);
+            if (!_channelManager.Channel.Writer.TryWrite(log))
+            {
+                // 铁证特权通道在突发排队时等待至多 2 秒，确保调度员操作与自愈记录不可抵赖
+                try
+                {
+                    var writeTask = _channelManager.Channel.Writer.WriteAsync(log).AsTask();
+                    if (!writeTask.Wait(TimeSpan.FromSeconds(2)))
+                    {
+                        Console.Error.WriteLine($"[EMERGENCY-AUDIT-LOSS-PREVENTION] OperationLog channel full, timed out writing: {log.Action} ({log.TargetType}:{log.TargetId})");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[EMERGENCY-AUDIT-LOSS-PREVENTION] OperationLog write failed: {ex.Message}");
+                }
+            }
 
             if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
             {

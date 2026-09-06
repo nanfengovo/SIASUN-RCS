@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using SIASUN.RCS.Dispatch.Dtos;
 using SIASUN.RCS.Interfaces.OperationLogs;
+using SIASUN.RCS.Logs.OperatorLog;
 using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Permissions;
 using SIASUN.RCS.Tasks;
@@ -61,16 +62,51 @@ namespace SIASUN.RCS.Dispatch
             var beforeState = "Running";
             var afterState = "Canceled";
 
-            // 若仓储已注入，查询并修改真实数据库聚合根实体，触发 EF Core 实体审计拦截器记录差异
             if (_taskRepository != null)
             {
                 var taskEntity = await FindTaskEntityAsync(input.TaskId);
-                if (taskEntity != null)
+                if (taskEntity == null)
                 {
-                    beforeState = taskEntity.Status.ToString();
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "CancelTask",
+                        TargetType = "Task",
+                        TargetId = input.TaskId,
+                        TaskId = input.TaskId,
+                        AgvId = input.AgvId,
+                        BeforeState = "NonExistent",
+                        AfterState = "NonExistent",
+                        Reason = input.Reason,
+                        Description = $"调度员人工干预取消任务 [{input.TaskId}] 失败：目标任务实体不存在"
+                    }, OperationLogStatus.Failed, $"未找到任务 [{input.TaskId}]");
+
+                    throw new UserFriendlyException($"未找到任务 [{input.TaskId}]，无法执行取消操作。");
+                }
+
+                beforeState = taskEntity.Status.ToString();
+                try
+                {
                     taskEntity.Cancel(input.Reason);
                     await _taskRepository.UpdateAsync(taskEntity, autoSave: true);
                     afterState = taskEntity.Status.ToString();
+                }
+                catch (Exception ex)
+                {
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "CancelTask",
+                        TargetType = "Task",
+                        TargetId = input.TaskId,
+                        TaskId = input.TaskId,
+                        AgvId = input.AgvId,
+                        BeforeState = beforeState,
+                        AfterState = beforeState,
+                        Reason = input.Reason,
+                        Description = $"调度员人工干预取消任务 [{input.TaskId}] 失败：{ex.Message}"
+                    }, OperationLogStatus.Failed, ex.Message);
+                    throw;
                 }
             }
 
@@ -86,7 +122,7 @@ namespace SIASUN.RCS.Dispatch
                 AfterState = afterState,
                 Reason = input.Reason,
                 Description = $"调度员人工干预取消任务 [{input.TaskId}]，原因：{input.Reason}"
-            });
+            }, OperationLogStatus.Success);
 
             return new DispatchInterventionResultDto
             {
@@ -123,12 +159,48 @@ namespace SIASUN.RCS.Dispatch
             if (_taskRepository != null)
             {
                 var taskEntity = await FindTaskEntityAsync(input.TaskId);
-                if (taskEntity != null)
+                if (taskEntity == null)
                 {
-                    beforeState = taskEntity.Status.ToString();
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "ForceEndTask",
+                        TargetType = "Task",
+                        TargetId = input.TaskId,
+                        TaskId = input.TaskId,
+                        AgvId = input.AgvId,
+                        BeforeState = "NonExistent",
+                        AfterState = "NonExistent",
+                        Reason = input.Reason,
+                        Description = $"调度员人工强制完结任务 [{input.TaskId}] 失败：目标任务实体不存在"
+                    }, OperationLogStatus.Failed, $"未找到任务 [{input.TaskId}]");
+
+                    throw new UserFriendlyException($"未找到任务 [{input.TaskId}]，无法执行强制完结操作。");
+                }
+
+                beforeState = taskEntity.Status.ToString();
+                try
+                {
                     taskEntity.ForceEnd(input.Reason);
                     await _taskRepository.UpdateAsync(taskEntity, autoSave: true);
                     afterState = taskEntity.Status.ToString();
+                }
+                catch (Exception ex)
+                {
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "ForceEndTask",
+                        TargetType = "Task",
+                        TargetId = input.TaskId,
+                        TaskId = input.TaskId,
+                        AgvId = input.AgvId,
+                        BeforeState = beforeState,
+                        AfterState = beforeState,
+                        Reason = input.Reason,
+                        Description = $"调度员人工强制完结任务 [{input.TaskId}] 失败：{ex.Message}"
+                    }, OperationLogStatus.Failed, ex.Message);
+                    throw;
                 }
             }
 
@@ -144,7 +216,7 @@ namespace SIASUN.RCS.Dispatch
                 AfterState = afterState,
                 Reason = input.Reason,
                 Description = $"调度员人工强制完结任务 [{input.TaskId}]，原因：{input.Reason}"
-            });
+            }, OperationLogStatus.Success);
 
             return new DispatchInterventionResultDto
             {
@@ -182,21 +254,78 @@ namespace SIASUN.RCS.Dispatch
             var beforeState = "Unassigned";
             var afterState = $"Assigned:{input.AgvId}";
 
-            if (_taskRepository != null && _vehicleRepository != null)
+            if (_taskRepository != null || _vehicleRepository != null)
             {
-                var taskEntity = await FindTaskEntityAsync(input.TaskId);
-                var vehicleEntity = await FindVehicleEntityAsync(input.AgvId);
+                var taskEntity = _taskRepository != null ? await FindTaskEntityAsync(input.TaskId) : null;
+                if (_taskRepository != null && taskEntity == null)
+                {
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "AssignVehicle",
+                        TargetType = "Task",
+                        TargetId = input.TaskId,
+                        TaskId = input.TaskId,
+                        AgvId = input.AgvId,
+                        BeforeState = "NonExistent",
+                        AfterState = "NonExistent",
+                        Reason = input.Reason,
+                        Description = $"调度员指定车辆 [{input.AgvId}] 执行任务 [{input.TaskId}] 失败：目标任务不存在"
+                    }, OperationLogStatus.Failed, $"未找到任务 [{input.TaskId}]");
+
+                    throw new UserFriendlyException($"未找到任务 [{input.TaskId}]，无法指定车辆。");
+                }
+
+                var vehicleEntity = _vehicleRepository != null ? await FindVehicleEntityAsync(input.AgvId) : null;
+                if (_vehicleRepository != null && vehicleEntity == null)
+                {
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "AssignVehicle",
+                        TargetType = "Task",
+                        TargetId = input.TaskId,
+                        TaskId = input.TaskId,
+                        AgvId = input.AgvId,
+                        BeforeState = taskEntity?.AssignedVehicleCode ?? "Unassigned",
+                        AfterState = taskEntity?.AssignedVehicleCode ?? "Unassigned",
+                        Reason = input.Reason,
+                        Description = $"调度员指定车辆 [{input.AgvId}] 执行任务 [{input.TaskId}] 失败：目标车辆不存在"
+                    }, OperationLogStatus.Failed, $"未找到车辆 [{input.AgvId}]");
+
+                    throw new UserFriendlyException($"未找到车辆 [{input.AgvId}]，无法执行指派。");
+                }
 
                 if (taskEntity != null && vehicleEntity != null)
                 {
                     beforeState = taskEntity.AssignedVehicleCode ?? "Unassigned";
-                    taskEntity.AssignVehicle(vehicleEntity.Id, vehicleEntity.VehicleCode, input.Reason);
-                    await _taskRepository.UpdateAsync(taskEntity, autoSave: true);
+                    try
+                    {
+                        taskEntity.AssignVehicle(vehicleEntity.Id, vehicleEntity.VehicleCode, input.Reason);
+                        await _taskRepository!.UpdateAsync(taskEntity, autoSave: true);
 
-                    vehicleEntity.AssignTask(taskEntity.Id, taskEntity.TaskCode);
-                    await _vehicleRepository.UpdateAsync(vehicleEntity, autoSave: true);
+                        vehicleEntity.AssignTask(taskEntity.Id, taskEntity.TaskCode);
+                        await _vehicleRepository!.UpdateAsync(vehicleEntity, autoSave: true);
 
-                    afterState = $"Assigned:{vehicleEntity.VehicleCode}";
+                        afterState = $"Assigned:{vehicleEntity.VehicleCode}";
+                    }
+                    catch (Exception ex)
+                    {
+                        _operationLogRecorder.Record(new OperationLogContext
+                        {
+                            Module = "Dispatch",
+                            Action = "AssignVehicle",
+                            TargetType = "Task",
+                            TargetId = input.TaskId,
+                            TaskId = input.TaskId,
+                            AgvId = input.AgvId,
+                            BeforeState = beforeState,
+                            AfterState = beforeState,
+                            Reason = input.Reason,
+                            Description = $"调度员指定车辆 [{input.AgvId}] 执行任务 [{input.TaskId}] 失败：{ex.Message}"
+                        }, OperationLogStatus.Failed, ex.Message);
+                        throw;
+                    }
                 }
             }
 
@@ -212,7 +341,7 @@ namespace SIASUN.RCS.Dispatch
                 AfterState = afterState,
                 Reason = input.Reason,
                 Description = $"调度员指定车辆 [{input.AgvId}] 执行任务 [{input.TaskId}]，原因：{input.Reason}"
-            });
+            }, OperationLogStatus.Success);
 
             return new DispatchInterventionResultDto
             {
@@ -249,12 +378,46 @@ namespace SIASUN.RCS.Dispatch
             if (_vehicleRepository != null)
             {
                 var vehicleEntity = await FindVehicleEntityAsync(input.AgvId);
-                if (vehicleEntity != null)
+                if (vehicleEntity == null)
                 {
-                    beforeState = vehicleEntity.Status.ToString();
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "ResetVehicle",
+                        TargetType = "Vehicle",
+                        TargetId = input.AgvId,
+                        AgvId = input.AgvId,
+                        BeforeState = "NonExistent",
+                        AfterState = "NonExistent",
+                        Reason = input.Reason,
+                        Description = $"调度员人工复位车辆 [{input.AgvId}] 失败：目标车辆不存在"
+                    }, OperationLogStatus.Failed, $"未找到车辆 [{input.AgvId}]");
+
+                    throw new UserFriendlyException($"未找到车辆 [{input.AgvId}]，无法执行复位操作。");
+                }
+
+                beforeState = vehicleEntity.Status.ToString();
+                try
+                {
                     vehicleEntity.Reset(input.Reason);
                     await _vehicleRepository.UpdateAsync(vehicleEntity, autoSave: true);
                     afterState = vehicleEntity.Status.ToString();
+                }
+                catch (Exception ex)
+                {
+                    _operationLogRecorder.Record(new OperationLogContext
+                    {
+                        Module = "Dispatch",
+                        Action = "ResetVehicle",
+                        TargetType = "Vehicle",
+                        TargetId = input.AgvId,
+                        AgvId = input.AgvId,
+                        BeforeState = beforeState,
+                        AfterState = beforeState,
+                        Reason = input.Reason,
+                        Description = $"调度员人工复位车辆 [{input.AgvId}] 失败：{ex.Message}"
+                    }, OperationLogStatus.Failed, ex.Message);
+                    throw;
                 }
             }
 
@@ -269,7 +432,7 @@ namespace SIASUN.RCS.Dispatch
                 AfterState = afterState,
                 Reason = input.Reason,
                 Description = $"调度员人工复位车辆 [{input.AgvId}]，原因：{input.Reason}"
-            });
+            }, OperationLogStatus.Success);
 
             return new DispatchInterventionResultDto
             {

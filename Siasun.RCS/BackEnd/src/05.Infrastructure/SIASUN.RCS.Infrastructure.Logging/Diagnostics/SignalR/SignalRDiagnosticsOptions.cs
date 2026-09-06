@@ -16,14 +16,41 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
         public bool IsEnabled { get; set; } = true;
 
         /// <summary>
+        /// 是否开启诊断推流（标准规范别名，对齐 AGENTS.md §三.4）
+        /// </summary>
+        public bool Enabled
+        {
+            get => IsEnabled;
+            set => IsEnabled = value;
+        }
+
+        /// <summary>
         /// 批量推流节流间隔（毫秒，默认 150ms，防止网络与移动前端渲染风暴）
         /// </summary>
         public int FlushIntervalMs { get; set; } = 150;
 
         /// <summary>
+        /// 采样与刷新间隔毫秒数（标准规范别名，对齐 AGENTS.md §三.4）
+        /// </summary>
+        public int SampleIntervalMs
+        {
+            get => FlushIntervalMs;
+            set => FlushIntervalMs = value;
+        }
+
+        /// <summary>
         /// 每个 Topic 维护的内存环形缓存容量（连入即推历史记录数，默认 100）
         /// </summary>
         public int RingBufferCapacity { get; set; } = 100;
+
+        /// <summary>
+        /// 最大环形缓存事件数（标准规范别名，对齐 AGENTS.md §三.4）
+        /// </summary>
+        public int MaxBufferedEvents
+        {
+            get => RingBufferCapacity;
+            set => RingBufferCapacity = value;
+        }
 
         /// <summary>
         /// 默认推流的最低日志/事件级别（Information | Warning | Error）
