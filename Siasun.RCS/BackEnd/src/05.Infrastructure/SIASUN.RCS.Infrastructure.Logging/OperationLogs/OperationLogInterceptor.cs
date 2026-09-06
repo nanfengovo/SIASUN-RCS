@@ -100,18 +100,47 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
                 Description = desc
             };
 
+            var prevRecorded = OperationLogScope.IsRecorded;
+            OperationLogScope.IsRecorded = false;
             try
             {
                 await invocation.ProceedAsync();
 
-                context.AfterState = "Success";
-                _recorder.Record(context, OperationLogStatus.Success);
+                if (!OperationLogScope.IsRecorded)
+                {
+                    context.AfterState = "Success";
+                    _recorder.Record(context, OperationLogStatus.Success);
+                }
             }
             catch (Exception ex)
             {
-                context.AfterState = "Failed";
-                _recorder.Record(context, OperationLogStatus.Failed, ex.Message);
+                if (!OperationLogScope.IsRecorded)
+                {
+                    context.AfterState = "Failed";
+                    _recorder.Record(context, OperationLogStatus.Failed, ex.Message);
+                }
                 throw;
+            }
+            finally
+            {
+                OperationLogScope.IsRecorded = prevRecorded;
+            }
+        }
+
+        /// <summary>
+        /// 操作日志作用域标记，用于识别当前异步调用链中是否已经显式记录过操作审计，防止 AOP 与显式记录重复落库
+        /// </summary>
+        internal static class OperationLogScope
+        {
+            private static readonly System.Threading.AsyncLocal<bool> _isRecorded = new();
+
+            /// <summary>
+            /// 当前异步作用域中是否已完成操作审计记录
+            /// </summary>
+            public static bool IsRecorded
+            {
+                get => _isRecorded.Value;
+                set => _isRecorded.Value = value;
             }
         }
 

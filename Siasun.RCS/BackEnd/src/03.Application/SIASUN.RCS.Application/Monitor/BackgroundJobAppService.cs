@@ -42,6 +42,7 @@ namespace SIASUN.RCS.Monitor
         /// <param name="jobName">任务名称</param>
         /// <param name="groupName">任务分组</param>
         [Authorize(RCSPermissions.BackgroundJobs.Manage)]
+        [OperationLog(Module = "BackgroundJob", Action = "Pause", TargetType = "BackgroundJob", Description = "调度员手动暂停后台任务")]
         public async Task PauseAsync(string jobName, string groupName)
         {
             await _jobService.PauseJobAsync(jobName, groupName);
@@ -64,6 +65,7 @@ namespace SIASUN.RCS.Monitor
         /// <param name="jobName">任务名称</param>
         /// <param name="groupName">任务分组</param>
         [Authorize(RCSPermissions.BackgroundJobs.Manage)]
+        [OperationLog(Module = "BackgroundJob", Action = "Resume", TargetType = "BackgroundJob", Description = "调度员手动恢复后台任务")]
         public async Task ResumeAsync(string jobName, string groupName)
         {
             await _jobService.ResumeJobAsync(jobName, groupName);
@@ -86,6 +88,7 @@ namespace SIASUN.RCS.Monitor
         /// <param name="jobName">任务名称</param>
         /// <param name="groupName">任务分组</param>
         [Authorize(RCSPermissions.BackgroundJobs.Manage)]
+        [OperationLog(Module = "BackgroundJob", Action = "TriggerNow", TargetType = "BackgroundJob", Description = "调度员手动单次立即触发后台任务")]
         public async Task TriggerNowAsync(string jobName, string groupName)
         {
             await _jobService.TriggerJobNowAsync(jobName, groupName);
@@ -109,6 +112,7 @@ namespace SIASUN.RCS.Monitor
         /// <param name="groupName">任务分组</param>
         /// <param name="newCron">新 Cron 表达式</param>
         [Authorize(RCSPermissions.BackgroundJobs.Manage)]
+        [OperationLog(Module = "BackgroundJob", Action = "UpdateCron", TargetType = "BackgroundJob", Description = "调度员更新后台任务 Cron 表达式")]
         public async Task UpdateCronAsync(string jobName, string groupName, string newCron)
         {
             if (string.IsNullOrWhiteSpace(newCron))

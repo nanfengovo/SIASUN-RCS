@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using SIASUN.RCS.Diagnostics.FlightPack;
+using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Permissions;
 
 namespace SIASUN.RCS.Diagnostics
@@ -29,6 +30,7 @@ namespace SIASUN.RCS.Diagnostics
         /// <param name="input">排障导出请求参数</param>
         /// <returns>ZIP 二进制字节流</returns>
         [Authorize(RCSPermissions.FlightPack.Export)]
+        [OperationLog(Module = "Diagnostics", Action = "ExportFlightPack", TargetType = "FlightPack", Description = "导出事故排障黑匣子取证包")]
         public async Task<byte[]> ExportAsync(ExportFlightPackDto input)
         {
             var request = new FlightPackRequest

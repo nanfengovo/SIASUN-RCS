@@ -49,6 +49,7 @@ namespace SIASUN.RCS.Dispatch
         /// <param name="input">取消任务参数</param>
         /// <returns>干预操作结果</returns>
         [Authorize(RCSPermissions.DispatchIntervention.Cancel)]
+        [OperationLog(Module = "Dispatch", Action = "CancelTask", TargetType = "Task", Description = "调度员人工干预取消任务")]
         public async Task<DispatchInterventionResultDto> CancelTaskAsync(CancelTaskInput input)
         {
             Check.NotNull(input, nameof(input));
@@ -134,6 +135,7 @@ namespace SIASUN.RCS.Dispatch
         /// <param name="input">强制完结参数</param>
         /// <returns>干预操作结果</returns>
         [Authorize(RCSPermissions.DispatchIntervention.ForceEnd)]
+        [OperationLog(Module = "Dispatch", Action = "ForceEndTask", TargetType = "Task", Description = "调度员人工干预强制完结任务")]
         public async Task<DispatchInterventionResultDto> ForceEndTaskAsync(ForceEndTaskInput input)
         {
             Check.NotNull(input, nameof(input));
@@ -219,6 +221,7 @@ namespace SIASUN.RCS.Dispatch
         /// <param name="input">指派车辆参数</param>
         /// <returns>干预操作结果</returns>
         [Authorize(RCSPermissions.DispatchIntervention.Assign)]
+        [OperationLog(Module = "Dispatch", Action = "AssignVehicle", TargetType = "Task", Description = "调度员人工干预指派任务车辆")]
         public async Task<DispatchInterventionResultDto> AssignVehicleAsync(AssignVehicleInput input)
         {
             Check.NotNull(input, nameof(input));
@@ -332,6 +335,7 @@ namespace SIASUN.RCS.Dispatch
         /// <param name="input">复位车辆参数</param>
         /// <returns>干预操作结果</returns>
         [Authorize(RCSPermissions.DispatchIntervention.Reset)]
+        [OperationLog(Module = "Dispatch", Action = "ResetVehicle", TargetType = "Vehicle", Description = "调度员人工干预复位车辆报警")]
         public async Task<DispatchInterventionResultDto> ResetVehicleAsync(ResetVehicleInput input)
         {
             Check.NotNull(input, nameof(input));

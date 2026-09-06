@@ -47,6 +47,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
         public void Record(OperationLogContext context, OperationLogStatus status = OperationLogStatus.Success, string? errorMessage = null)
         {
             if (context == null) return;
+            OperationLogInterceptor.OperationLogScope.IsRecorded = true;
 
             var userId = _currentUser.Id;
             var userName = _currentUser.UserName ?? "System";

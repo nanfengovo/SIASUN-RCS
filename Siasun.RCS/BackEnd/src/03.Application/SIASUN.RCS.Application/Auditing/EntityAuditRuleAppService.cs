@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Local;
+using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Permissions;
 
 namespace SIASUN.RCS.Auditing
@@ -77,6 +78,7 @@ namespace SIASUN.RCS.Auditing
         /// </summary>
         /// <param name="id">规则唯一标识</param>
         [Authorize(RCSPermissions.EntityAuditRules.Edit)]
+        [OperationLog(Module = "Auditing", Action = "ToggleEntityRule", TargetType = "EntityAuditRule", Description = "切换实体审计规则启用状态")]
         public async Task ToggleAsync(Guid id)
         {
             var entity = await Repository.GetAsync(id);
@@ -108,6 +110,7 @@ namespace SIASUN.RCS.Auditing
         /// </summary>
         /// <param name="input">创建规则入参</param>
         /// <returns>创建成功的规则 DTO</returns>
+        [OperationLog(Module = "Auditing", Action = "CreateEntityRule", TargetType = "EntityAuditRule", Description = "创建实体变更审计规则")]
         public override async Task<EntityAuditRuleDto> CreateAsync(CreateUpdateEntityAuditRuleDto input)
         {
             var result = await base.CreateAsync(input);
@@ -134,6 +137,7 @@ namespace SIASUN.RCS.Auditing
         /// <param name="id">规则唯一标识</param>
         /// <param name="input">更新参数</param>
         /// <returns>更新后的规则 DTO</returns>
+        [OperationLog(Module = "Auditing", Action = "UpdateEntityRule", TargetType = "EntityAuditRule", Description = "更新实体变更审计规则")]
         public override async Task<EntityAuditRuleDto> UpdateAsync(Guid id, CreateUpdateEntityAuditRuleDto input)
         {
             var result = await base.UpdateAsync(id, input);
@@ -158,6 +162,7 @@ namespace SIASUN.RCS.Auditing
         /// 删除指定的实体变更审计规则
         /// </summary>
         /// <param name="id">规则唯一标识</param>
+        [OperationLog(Module = "Auditing", Action = "DeleteEntityRule", TargetType = "EntityAuditRule", Description = "删除实体变更审计规则")]
         public override async Task DeleteAsync(Guid id)
         {
             await base.DeleteAsync(id);

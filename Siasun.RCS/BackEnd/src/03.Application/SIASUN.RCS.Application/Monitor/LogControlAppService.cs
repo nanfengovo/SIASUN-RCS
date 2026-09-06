@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using SIASUN.RCS.Logging;
+using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Permissions;
 using Volo.Abp.Application.Services;
 
@@ -44,6 +45,7 @@ namespace SIASUN.RCS.Monitor
         /// <param name="level">日志级别 (Trace, Debug, Information, Warning, Error, Critical, None)</param>
         /// <returns>是否设置成功</returns>
         [Authorize(RCSPermissions.LogControl.SetLevel)]
+        [OperationLog(Module = "LogControl", Action = "SetLevel", TargetType = "Logger", Description = "现场运维人员动态调整日志级别")]
         public bool SetLevel(string namespaceName, string level)
         {
             if (System.Enum.TryParse<Microsoft.Extensions.Logging.LogLevel>(level, true, out var parsedLevel))

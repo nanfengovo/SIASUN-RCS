@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Permissions;
 using System.Linq;
 using Volo.Abp.Application.Dtos;
@@ -60,6 +61,7 @@ namespace SIASUN.RCS.Auditing
         /// <param name="input">新建规则参数</param>
         /// <returns>已创建的规则 DTO</returns>
         [Authorize(RCSPermissions.AuditLogFilterRules.Create)]
+        [OperationLog(Module = "Auditing", Action = "CreateFilterRule", TargetType = "AuditFilterRule", Description = "创建 API 审计过滤规则")]
         public async Task<AuditLogFilterRuleDto> CreateAsync(CreateAuditLogFilterRuleDto input)
         {
             var entity = new AuditLogFilterRule(
@@ -98,6 +100,7 @@ namespace SIASUN.RCS.Auditing
         /// <param name="input">更新参数</param>
         /// <returns>已更新的规则 DTO</returns>
         [Authorize(RCSPermissions.AuditLogFilterRules.Edit)]
+        [OperationLog(Module = "Auditing", Action = "UpdateFilterRule", TargetType = "AuditFilterRule", Description = "更新 API 审计过滤规则")]
         public async Task<AuditLogFilterRuleDto> UpdateAsync(Guid id, UpdateAuditLogFilterRuleDto input)
         {
             var entity = await _ruleRepository.GetAsync(id);
@@ -130,6 +133,7 @@ namespace SIASUN.RCS.Auditing
         /// <param name="id">规则唯一标识</param>
         /// <returns>切换后的规则 DTO</returns>
         [Authorize(RCSPermissions.AuditLogFilterRules.Edit)]
+        [OperationLog(Module = "Auditing", Action = "ToggleFilterRule", TargetType = "AuditFilterRule", Description = "切换 API 审计过滤规则启用状态")]
         public async Task<AuditLogFilterRuleDto> ToggleAsync(Guid id)
         {
             var entity = await _ruleRepository.GetAsync(id);
@@ -159,6 +163,7 @@ namespace SIASUN.RCS.Auditing
         /// </summary>
         /// <param name="id">规则唯一标识</param>
         [Authorize(RCSPermissions.AuditLogFilterRules.Delete)]
+        [OperationLog(Module = "Auditing", Action = "DeleteFilterRule", TargetType = "AuditFilterRule", Description = "删除 API 审计过滤规则")]
         public async Task DeleteAsync(Guid id)
         {
             var entity = await _ruleRepository.FindAsync(id);
