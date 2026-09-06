@@ -179,7 +179,6 @@ namespace SIASUN.RCS.Swagger
                 else if (path.EndsWith("set-level") && method == "POST") { operation.Summary = "动态调整指定命名空间的日志级别"; operation.Description = "允许现场排障时一键将系统的日志级别从 Info 降为 Debug，抓完报文再调回，无需重启服务。"; }
             }
 
-            // --- 系统资源监控 (System Monitor) ---
             // --- 系统资源与容量健康监控 (System Monitor) ---
             else if (path.StartsWith("api/app/system-monitor"))
             {

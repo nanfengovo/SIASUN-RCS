@@ -84,3 +84,4 @@ namespace SIASUN.RCS.Monitor
         public DateTime EvaluatedAt { get; set; } = DateTime.UtcNow;
     }
 }
+

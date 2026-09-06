@@ -13,6 +13,10 @@ using Volo.Abp.Tracing;
 
 namespace SIASUN.RCS.EntityFrameworkCore.Auditing
 {
+    /// <summary>
+    /// EF Core 实体变更审计拦截器，负责在 SaveChanges 提交时截获实体属性变更并路由至审计通道
+    /// 遵循规范三层审计与 L4 零丢失铁律，保障核心领域实体（AgvTask、AgvVehicle 等）变更不可抵赖
+    /// </summary>
     public class EntityAuditInterceptor : SaveChangesInterceptor, ISingletonDependency
     {
         private readonly IServiceProvider _serviceProvider;
@@ -21,6 +25,10 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
         private IEntityAuditRuleEvaluator? _evaluator;
         private IMemoryCache? _memoryCache;
 
+        /// <summary>
+        /// 初始化实体变更审计拦截器
+        /// </summary>
+        /// <param name="serviceProvider">依赖注入服务提供者</param>
         public EntityAuditInterceptor(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
@@ -32,12 +40,25 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
         private IEntityAuditRuleEvaluator? GetEvaluator() => _evaluator ??= _serviceProvider.GetService<IEntityAuditRuleEvaluator>();
         private IMemoryCache? GetMemoryCache() => _memoryCache ??= _serviceProvider.GetService<IMemoryCache>();
 
+        /// <summary>
+        /// 异步保存上下文更改时触发实体审计捕获
+        /// </summary>
+        /// <param name="eventData">EF Core 实体事件数据</param>
+        /// <param name="result">拦截器执行结果</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>值任务</returns>
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
             CaptureAuditLogs(eventData.Context);
             return base.SavingChangesAsync(eventData, result, cancellationToken);
         }
 
+        /// <summary>
+        /// 同步保存上下文更改时触发实体审计捕获
+        /// </summary>
+        /// <param name="eventData">EF Core 实体事件数据</param>
+        /// <param name="result">拦截器执行结果</param>
+        /// <returns>拦截器执行结果</returns>
         public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
         {
             CaptureAuditLogs(eventData.Context);
@@ -176,7 +197,22 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                     CreationTime = DateTime.UtcNow
                 };
 
-                GetChannel()?.TryWrite(msg);
+                var channel = GetChannel();
+                if (channel != null)
+                {
+                    var written = channel.TryWrite(msg);
+                    if (!written)
+                    {
+                        try
+                        {
+                            channel.WriteAsync(msg).AsTask().Wait(TimeSpan.FromMilliseconds(500));
+                        }
+                        catch
+                        {
+                            // 吞掉等待异常，底层 Spill 机制负责最终兜底
+                        }
+                    }
+                }
             }
         }
     }

@@ -14,6 +14,14 @@ namespace SIASUN.RCS.Auditing
         bool TryWrite(EntityAuditLogMessage message);
 
         /// <summary>
+        /// 异步向通道写入实体变更消息，特权实体在通道满载时异步等待槽位并支持溢出保全
+        /// </summary>
+        /// <param name="message">实体变更审计消息</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>值任务</returns>
+        System.Threading.Tasks.ValueTask WriteAsync(EntityAuditLogMessage message, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// 累计特权溢出保全数量（大于 0 说明发生过极端通道饱和）
         /// </summary>
         long SpillCount { get; }

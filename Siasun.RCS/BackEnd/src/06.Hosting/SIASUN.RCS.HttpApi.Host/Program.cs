@@ -8,8 +8,16 @@ using SIASUN.RCS.Infrastructure.Logging.Banner;
 
 namespace SIASUN.RCS;
 
+/// <summary>
+/// SIASUN RCS 应用程序主启动入口类
+/// </summary>
 public class Program
 {
+    /// <summary>
+    /// 应用程序启动主入口
+    /// </summary>
+    /// <param name="args">启动命令行参数</param>
+    /// <returns>退出状态码</returns>
     public async static Task<int> Main(string[] args)
     {
         Log.Logger = new LoggerConfiguration()
