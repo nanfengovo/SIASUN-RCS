@@ -54,19 +54,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
             _privilegePolicy = privilegePolicy ?? DefaultEvidencePrivilegePolicy.Instance;
         }
 
-        /// <summary>
-        /// 兼容历史 SignalRDiagnosticsOptions 的构造函数重载
-        /// </summary>
-        /// <param name="signalROptions">历史 SignalR 配置选项</param>
-        /// <param name="trafficGovernor">自适应限流控制器（可选）</param>
-        /// <param name="privilegePolicy">特权裁决策略单一真实源（可选）</param>
-        public DiagnosticLiveStreamBroker(
-            IOptions<SignalRDiagnosticsOptions>? signalROptions,
-            IAdaptiveTrafficGovernor? trafficGovernor = null,
-            IEvidencePrivilegePolicy? privilegePolicy = null)
-            : this(signalROptions != null ? Microsoft.Extensions.Options.Options.Create<DiagnosticLiveStreamOptions>(signalROptions.Value) : null, trafficGovernor, privilegePolicy)
-        {
-        }
+
 
         /// <summary>
         /// 发布诊断事件至对应主题频道

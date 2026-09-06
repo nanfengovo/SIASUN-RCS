@@ -38,21 +38,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
             _logger = logger;
         }
 
-        /// <summary>
-        /// 兼容历史 SignalRDiagnosticsOptions 的构造重载
-        /// </summary>
-        /// <param name="broker">实时诊断推流中台</param>
-        /// <param name="hubContext">SignalR Hub 上下文</param>
-        /// <param name="signalROptions">历史 SignalR 配置选项</param>
-        /// <param name="logger">日志记录器</param>
-        public DiagnosticLiveStreamWorker(
-            IDiagnosticLiveStreamBroker broker,
-            IHubContext<DiagnosticHub> hubContext,
-            IOptions<SignalRDiagnosticsOptions>? signalROptions,
-            ILogger<DiagnosticLiveStreamWorker> logger)
-            : this(broker, hubContext, signalROptions != null ? Microsoft.Extensions.Options.Options.Create<SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions>(signalROptions.Value) : null, logger)
-        {
-        }
+
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {

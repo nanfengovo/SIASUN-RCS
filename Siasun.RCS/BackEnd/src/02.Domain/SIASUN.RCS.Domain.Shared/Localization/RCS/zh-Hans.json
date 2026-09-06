@@ -50,7 +50,6 @@
     "Permission:LogControl": "动态日志级别控制",
     "Permission:LogControl.SetLevel": "设置命名空间日志级别",
     "Permission:SystemMonitor": "系统状态与性能监控",
-    "Permission:FrontendAudit": "前端埋点行为审计"
     "Permission:FrontendAudit": "前端埋点行为审计",
     "Permission:BackgroundJobs": "后台定时作业管理",
     "Permission:BackgroundJobs.Manage": "操作与修改后台作业",
