@@ -8,7 +8,7 @@ public class RCSAppServiceTests
 {
     public class TestAppService : RCSAppService
     {
-        public System.Type GetLocalizationResource() => LocalizationResource;
+        public System.Type? GetLocalizationResource() => LocalizationResource;
     }
 
     [Fact]

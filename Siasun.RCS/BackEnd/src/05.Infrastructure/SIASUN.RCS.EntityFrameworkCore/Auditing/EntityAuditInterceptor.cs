@@ -121,7 +121,46 @@ namespace SIASUN.RCS.EntityFrameworkCore.Auditing
                 if (changedProps.Count == 0) continue;
 
                 var correlationIdProvider = GetCorrelationIdProvider();
-                var traceId = correlationIdProvider?.Get() ?? Guid.NewGuid().ToString("N");
+                string? traceId = SIASUN.RCS.Diagnostics.RcsTraceContext.CurrentTraceId;
+                if (string.IsNullOrWhiteSpace(traceId))
+                {
+                    traceId = correlationIdProvider?.Get();
+                }
+
+                if (string.IsNullOrWhiteSpace(traceId))
+                {
+                    try
+                    {
+                        var accessorType = Type.GetType("Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http.Abstractions") 
+                                        ?? Type.GetType("Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http");
+                        if (accessorType != null)
+                        {
+                            var accessor = _serviceProvider.GetService(accessorType);
+                            if (accessor != null)
+                            {
+                                var httpContextProp = accessorType.GetProperty("HttpContext");
+                                var httpContext = httpContextProp?.GetValue(accessor);
+                                if (httpContext != null)
+                                {
+                                    var itemsProp = httpContext.GetType().GetProperty("Items");
+                                    if (itemsProp?.GetValue(httpContext) is System.Collections.IDictionary items)
+                                    {
+                                        if (items.Contains("__RcsCorrelationId"))
+                                        {
+                                            traceId = items["__RcsCorrelationId"]?.ToString();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略反射回退解析异常
+                    }
+                }
+
+                traceId ??= Guid.NewGuid().ToString("N");
                 var pkProp = entry.Properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey());
                 var pkValue = pkProp?.CurrentValue?.ToString() ?? "0";
 

@@ -37,6 +37,27 @@
     "Unspecified": "System",
     "SeeAllUsers": "查看所有用户",
     "TakePhoto": "拍摄照片",
-    "ChoosePhoto": "选择照片"
+    "ChoosePhoto": "选择照片",
+    "Permission:RCS": "RCS 移动机器人调度控制系统",
+    "Permission:AuditLogFilterRules": "API报文审计过滤规则",
+    "Permission:EntityAuditRules": "实体审计规则",
+    "Permission:Create": "新增",
+    "Permission:Edit": "编辑",
+    "Permission:Delete": "删除",
+    "Permission:OperationLogs": "调度员操作与系统自审计日志",
+    "Permission:FlightPack": "事故排障黑匣子",
+    "Permission:FlightPack.Export": "导出黑匣子排障包",
+    "Permission:LogControl": "动态日志级别控制",
+    "Permission:LogControl.SetLevel": "设置命名空间日志级别",
+    "Permission:SystemMonitor": "系统状态与性能监控",
+    "Permission:FrontendAudit": "前端埋点行为审计"
+    "Permission:FrontendAudit": "前端埋点行为审计",
+    "Permission:BackgroundJobs": "后台定时作业管理",
+    "Permission:BackgroundJobs.Manage": "操作与修改后台作业",
+    "Permission:DispatchIntervention": "调度员人工干预控制",
+    "Permission:DispatchIntervention.Cancel": "取消任务",
+    "Permission:DispatchIntervention.ForceEnd": "强制结束任务",
+    "Permission:DispatchIntervention.Assign": "强制指派车辆",
+    "Permission:DispatchIntervention.Reset": "复位车辆故障状态"
   }
 }

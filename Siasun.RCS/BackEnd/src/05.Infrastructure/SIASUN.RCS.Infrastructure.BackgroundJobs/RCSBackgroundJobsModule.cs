@@ -50,6 +50,13 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
                     groupName: "Maintenance",
                     description: "高频自卫监控，磁盘达到高水位时强制清理日志",
                     cronExpression: "0 */5 * * * ?"); // 默认每 5 分钟检查一次
+
+                var dbRetentionCron = configuration.GetValue<string>("DatabaseLogRetention:Cron", "0 0 3 * * ?");
+                options.AddJobAndTrigger<DatabaseLogRetentionJob>(
+                    jobName: nameof(DatabaseLogRetentionJob),
+                    groupName: "Maintenance",
+                    description: "每天凌晨定期清理主数据库超期 OperationLog 与 SystemEventLog",
+                    cronExpression: dbRetentionCron!);
             });
         }
     }

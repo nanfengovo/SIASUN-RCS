@@ -3,8 +3,17 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace SIASUN.RCS.Swagger
 {
+    /// <summary>
+    /// ABP 框架底层动态 Web API 操作中文注释过滤器。
+    /// 为 ABP 内置的租户、账号、权限、特性、多语言等接口补充中文标题（Summary）与详细描述（Description）。
+    /// </summary>
     public class AbpBuiltInApiCommentsFilter : IOperationFilter
     {
+        /// <summary>
+        /// 为操作注入中文说明元数据。
+        /// </summary>
+        /// <param name="operation">OpenAPI 操作对象</param>
+        /// <param name="context">操作过滤器上下文</param>
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
         {
             var path = context.ApiDescription.RelativePath?.ToLower();
@@ -104,7 +113,14 @@ namespace SIASUN.RCS.Swagger
             // --- 用户与角色 (Identity) ---
             else if (path.StartsWith("api/identity/users"))
             {
-                if (path.Contains("roles") && method == "GET") { operation.Summary = "获取指定用户拥有的角色列表"; }
+                if (path.Contains("lookup"))
+                {
+                    if (path.Contains("by-username")) { operation.Summary = "按用户名精确查询用户简要信息"; }
+                    else if (path.Contains("search")) { operation.Summary = "多条件模糊搜索匹配的用户列表"; }
+                    else if (path.Contains("count")) { operation.Summary = "统计符合查询条件的用户总数量"; }
+                    else if (path.Contains("{id}")) { operation.Summary = "按用户主键查询用户简要信息"; }
+                }
+                else if (path.Contains("roles") && method == "GET") { operation.Summary = "获取指定用户拥有的角色列表"; }
                 else if (path.Contains("roles") && method == "PUT") { operation.Summary = "修改指定用户拥有的角色"; }
                 else if (method == "GET" && path.Contains("{id}")) { operation.Summary = "获取用户详情"; }
                 else if (method == "GET") { operation.Summary = "分页获取用户列表"; }

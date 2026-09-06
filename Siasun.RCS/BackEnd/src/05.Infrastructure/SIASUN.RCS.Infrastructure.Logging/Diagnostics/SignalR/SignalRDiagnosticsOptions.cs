@@ -5,6 +5,9 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
     /// </summary>
     public class SignalRDiagnosticsOptions
     {
+        /// <summary>
+        /// 配置节节点名称
+        /// </summary>
         public const string SectionName = "SignalRDiagnostics";
 
         /// <summary>
@@ -28,9 +31,19 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics.SignalR
         public string MinLogLevel { get; set; } = "Information";
 
         /// <summary>
-        /// 是否允许现场内网移动平板免 OAuth 认证直接连接调试
+        /// 最大活跃动态主题数量（如 task:xxx, vehicle:xxx，默认 500 个，超出按 LRU 自动淘汰）
         /// </summary>
-        public bool AllowAnonymousForLocalNetwork { get; set; } = true;
+        public int MaxActiveTopics { get; set; } = 500;
+
+        /// <summary>
+        /// 待发送批处理缓冲队列最大容量（默认 5000 条，提供背压保护，防止网络慢客户端打爆内存）
+        /// </summary>
+        public int MaxPendingQueueSize { get; set; } = 5000;
+
+        /// <summary>
+        /// 是否允许现场内网移动平板免 OAuth 认证直接连接调试（生产安全默认 false）
+        /// </summary>
+        public bool AllowAnonymousForLocalNetwork { get; set; } = false;
 
         /// <summary>
         /// SignalR Hub 路由端点

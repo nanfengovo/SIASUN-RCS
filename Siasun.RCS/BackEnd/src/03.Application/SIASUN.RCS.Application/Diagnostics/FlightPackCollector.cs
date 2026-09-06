@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -20,15 +21,21 @@ using Volo.Abp.Linq;
 
 namespace SIASUN.RCS.Diagnostics
 {
+    /// <summary>
+    /// 工业级事故排障黑匣子取证包收集与打包器
+    /// 负责按任务或时间段整合 API 报文、操作日志、实体变更与系统事件（四轨时序），输出自包含的 .rcspack 离线排障包
+    /// </summary>
     public class FlightPackCollector : IFlightPackCollector, ITransientDependency
     {
         private readonly IRepository<OperationLog, Guid> _operationLogRepository;
         private readonly IRepository<SystemEventLog, Guid> _systemEventLogRepository;
         private readonly IApiAuditLogStore _apiAuditLogStore;
+        private readonly IEntityAuditLogStore? _entityAuditLogStore;
         private readonly IIncidentNarrativeBuilder _narrativeBuilder;
         private readonly IOperationLogRecorder _operationLogRecorder;
         private readonly IAsyncQueryableExecuter _asyncExecuter;
         private readonly IAiIncidentAnalysisProvider? _aiAnalysisProvider;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration? _configuration;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -36,6 +43,9 @@ namespace SIASUN.RCS.Diagnostics
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
+        /// <summary>
+        /// 构造函数注入四轨审计底层仓库与分析组件
+        /// </summary>
         public FlightPackCollector(
             IRepository<OperationLog, Guid> operationLogRepository,
             IRepository<SystemEventLog, Guid> systemEventLogRepository,
@@ -43,7 +53,9 @@ namespace SIASUN.RCS.Diagnostics
             IIncidentNarrativeBuilder narrativeBuilder,
             IOperationLogRecorder operationLogRecorder,
             IAsyncQueryableExecuter asyncExecuter,
-            IAiIncidentAnalysisProvider? aiAnalysisProvider = null)
+            IAiIncidentAnalysisProvider? aiAnalysisProvider = null,
+            IEntityAuditLogStore? entityAuditLogStore = null,
+            Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
         {
             _operationLogRepository = operationLogRepository;
             _systemEventLogRepository = systemEventLogRepository;
@@ -52,8 +64,13 @@ namespace SIASUN.RCS.Diagnostics
             _operationLogRecorder = operationLogRecorder;
             _asyncExecuter = asyncExecuter;
             _aiAnalysisProvider = aiAnalysisProvider;
+            _entityAuditLogStore = entityAuditLogStore;
+            _configuration = configuration;
         }
 
+        /// <summary>
+        /// 收集多轨审计证据并生成 .rcspack 压缩包二进制流
+        /// </summary>
         public async Task<byte[]> CollectAndPackAsync(FlightPackRequest request, CancellationToken cancellationToken = default)
         {
             // 1. 计算时间窗口
@@ -76,6 +93,7 @@ namespace SIASUN.RCS.Diagnostics
                 // 以 Task 为核心锚点：从 OperationLog 捞取该任务的生命周期边界
                 var taskQuery = opQuery
                     .Where(x => x.TargetType == "Task" && x.TargetId == request.AnchorKey)
+                    .Where(x => (x.TargetType == "Task" && x.TargetId == request.AnchorKey) || x.TaskId == request.AnchorKey)
                     .OrderBy(x => x.CreationTime);
 
                 var taskLogs = await _asyncExecuter.ToListAsync(taskQuery, cancellationToken);
@@ -103,12 +121,13 @@ namespace SIASUN.RCS.Diagnostics
                 queryEndTime = now;
             }
 
-            // 2. 捞取底层证据 (API Logs, Operator Logs, System Events)
+            // 2. 捞取底层四轨证据 (API Logs, Operator Logs, System Events, Entity Diffs)
             var apiLogs = await _apiAuditLogStore.GetListAsync(queryStartTime, queryEndTime, ct: cancellationToken);
 
             var operatorQuery = opQuery
                 .Where(x => (x.CreationTime >= queryStartTime && x.CreationTime <= queryEndTime)
-                            || (x.TargetType == "Task" && x.TargetId == request.AnchorKey))
+                            || (x.TargetType == "Task" && x.TargetId == request.AnchorKey)
+                            || x.TaskId == request.AnchorKey)
                 .OrderBy(x => x.CreationTime);
 
             var operatorLogs = await _asyncExecuter.ToListAsync(operatorQuery, cancellationToken);
@@ -121,6 +140,13 @@ namespace SIASUN.RCS.Diagnostics
             var systemEvents = await _asyncExecuter.ToListAsync(systemEventQuery, cancellationToken);
 
             // 3. 统一投影打平到 Timeline (三轨)
+            IReadOnlyList<EntityAuditLogEntry> entityLogs = Array.Empty<EntityAuditLogEntry>();
+            if (_entityAuditLogStore != null)
+            {
+                entityLogs = await _entityAuditLogStore.GetListAsync(queryStartTime, queryEndTime, keyword: null, ct: cancellationToken);
+            }
+
+            // 3. 统一投影打平到 Timeline (四轨)
             var timelineEvents = new List<FlightPackTimelineEvent>();
 
             // (1) API 轨
@@ -154,6 +180,14 @@ namespace SIASUN.RCS.Diagnostics
                 var isError = op.Status == OperationLogStatus.Failed;
                 var level = isError ? "Warning" : "Information";
 
+                var stateDetail = !string.IsNullOrEmpty(op.BeforeState) || !string.IsNullOrEmpty(op.AfterState)
+                    ? $" [状态: {op.BeforeState} -> {op.AfterState}]"
+                    : string.Empty;
+
+                var reasonDetail = !string.IsNullOrEmpty(op.Reason)
+                    ? $" (原因: {op.Reason})"
+                    : string.Empty;
+
                 timelineEvents.Add(new FlightPackTimelineEvent
                 {
                     Id = $"op_{op.Id}",
@@ -161,8 +195,8 @@ namespace SIASUN.RCS.Diagnostics
                     Track = "Operator",
                     Level = level,
                     Source = op.OperatorType.ToString(),
-                    Title = $"{op.UserName} 执行了【{op.Action}】",
-                    Summary = $"模块: {op.Module}, 目标: {op.TargetType}/{op.TargetId}, 详情: {op.Description}" + (string.IsNullOrEmpty(op.ErrorMessage) ? "" : $", 错误: {op.ErrorMessage}"),
+                    Title = $"{op.UserName} 执行了【{op.Action}】{stateDetail}",
+                    Summary = $"模块: {op.Module}, 目标: {op.TargetType}/{op.TargetId}, 详情: {op.Description}{reasonDetail}" + (string.IsNullOrEmpty(op.ErrorMessage) ? "" : $", 错误: {op.ErrorMessage}"),
                     TraceId = op.CorrelationId,
                     RawRef = new RawRefDto
                     {
@@ -196,6 +230,27 @@ namespace SIASUN.RCS.Diagnostics
                 });
             }
 
+            // (4) Entity 轨 (实体状态与属性变更)
+            foreach (var ent in entityLogs)
+            {
+                timelineEvents.Add(new FlightPackTimelineEvent
+                {
+                    Id = $"ent_{ent.Id}",
+                    Timestamp = ent.CreationTime,
+                    Track = "Entity",
+                    Level = "Information",
+                    Source = ent.EntityName,
+                    Title = $"实体【{ent.EntityName}】{ent.Action} (ID: {ent.EntityId})",
+                    Summary = !string.IsNullOrEmpty(ent.PropertyChangesJson) ? $"变更内容: {ent.PropertyChangesJson}" : $"实体【{ent.EntityName}】发生 {ent.Action}",
+                    TraceId = ent.TraceId,
+                    RawRef = new RawRefDto
+                    {
+                        File = "raw/entity_diffs.json",
+                        Id = ent.Id.ToString()
+                    }
+                });
+            }
+
             // 排序并计算相对时间偏移 relativeMs
             timelineEvents = timelineEvents.OrderBy(e => e.Timestamp).ToList();
             foreach (var evt in timelineEvents)
@@ -204,6 +259,11 @@ namespace SIASUN.RCS.Diagnostics
             }
 
             // 4. 组装 Metadata
+            // 4. 组装 Metadata (动态获取运行环境与装配件版本，杜绝假数据硬编码)
+            var entryAssembly = Assembly.GetEntryAssembly() ?? typeof(FlightPackCollector).Assembly;
+            var rcsVersion = entryAssembly.GetName().Version?.ToString(3) ?? "1.0.0";
+            var commitHash = entryAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "HEAD";
+
             var metadata = new FlightPackMetadata
             {
                 PackVersion = "1.0.0",
@@ -235,10 +295,10 @@ namespace SIASUN.RCS.Diagnostics
                 },
                 Environment = new EnvironmentDto
                 {
-                    RcsVersion = "3.0.0",
-                    GitCommit = "663fe73",
-                    HostName = System.Environment.MachineName,
-                    ActiveMapName = "Default"
+                    RcsVersion = rcsVersion,
+                    GitCommit = commitHash,
+                    HostName = Environment.MachineName,
+                    ActiveMapName = _configuration?["RCS:ActiveMapName"] ?? "Default"
                 }
             };
 
@@ -291,11 +351,17 @@ namespace SIASUN.RCS.Diagnostics
             {
                 // metadata.json
                 AddZipEntry(archive, "metadata.json", JsonSerializer.Serialize(metadata, JsonOptions));
+                var metaJson = JsonSerializer.Serialize(metadata, JsonOptions);
+                // 规范双写: manifest.json 与 metadata.json 均写入保证兼容
+                AddZipEntry(archive, "manifest.json", metaJson);
+                AddZipEntry(archive, "metadata.json", metaJson);
 
                 // timeline.json
                 AddZipEntry(archive, "timeline.json", JsonSerializer.Serialize(timelineEvents, JsonOptions));
 
                 // diagnostic_summary.md
+                // 规范双写: narrative.md 与 diagnostic_summary.md 均写入
+                AddZipEntry(archive, "narrative.md", diagnosticSummary);
                 AddZipEntry(archive, "diagnostic_summary.md", diagnosticSummary);
 
                 // raw/api_logs.json
@@ -307,10 +373,20 @@ namespace SIASUN.RCS.Diagnostics
                 // raw/system_logs.json
                 AddZipEntry(archive, "raw/system_logs.json", JsonSerializer.Serialize(systemEvents, JsonOptions));
 
+                // raw/entity_diffs.json
+                AddZipEntry(archive, "raw/entity_diffs.json", JsonSerializer.Serialize(entityLogs, JsonOptions));
+
                 // raw/ai_analysis.json (如果存在 AI 诊断结果)
                 if (aiResult != null)
                 {
                     AddZipEntry(archive, "raw/ai_analysis.json", JsonSerializer.Serialize(aiResult, JsonOptions));
+                }
+
+                // 嵌入离线播放器 index.html
+                var playerHtml = ResolvePlayerHtml();
+                if (!string.IsNullOrEmpty(playerHtml))
+                {
+                    AddZipEntry(archive, "index.html", playerHtml);
                 }
             }
 
@@ -332,6 +408,33 @@ namespace SIASUN.RCS.Diagnostics
             var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
             using var writer = new StreamWriter(entry.Open(), Encoding.UTF8);
             writer.Write(content);
+        }
+
+        private static string? ResolvePlayerHtml()
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "wwwroot", "player", "index.html"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "06.Hosting", "SIASUN.RCS.HttpApi.Host", "wwwroot", "player", "index.html"),
+                Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "player", "index.html")
+            };
+
+            foreach (var path in candidates)
+            {
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        return File.ReadAllText(path, Encoding.UTF8);
+                    }
+                }
+                catch
+                {
+                    // 忽略路径访问权限与检查异常
+                }
+            }
+
+            return null;
         }
     }
 }

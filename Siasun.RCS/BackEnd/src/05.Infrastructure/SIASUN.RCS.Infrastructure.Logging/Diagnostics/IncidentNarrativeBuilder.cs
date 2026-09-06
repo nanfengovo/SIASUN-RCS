@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,6 +32,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
             sb.AppendLine();
 
             // 1. 关键事件时序流
+            // 1. 关键事件时序流（支持周期心跳自动降噪折叠与超长事件截断）
             sb.AppendLine("## ⏱️ 关键事件时序流 (Chronological Narrative)");
             sb.AppendLine();
 
@@ -41,32 +43,35 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
             }
             else
             {
+                var foldedEvents = FoldFlappingAndFlicker(FoldHeartbeatsAndPings(timelineEvents.OrderBy(e => e.Timestamp).ToList()));
                 int step = 1;
-                foreach (var evt in timelineEvents.OrderBy(e => e.Timestamp))
+                const int maxNarrativeEvents = 200;
+
+                if (foldedEvents.Count <= maxNarrativeEvents)
                 {
-                    var icon = evt.Level switch
+                    foreach (var evt in foldedEvents)
                     {
-                        "Error" or "Fatal" => "🛑",
-                        "Warning" => "⚠️",
-                        _ => "🔹"
-                    };
-
-                    var trackTag = evt.Track switch
-                    {
-                        "API" => "通信",
-                        "Operator" => "操作",
-                        "Exception" => "异常",
-                        _ => evt.Track
-                    };
-
-                    sb.AppendLine($"{step++}. **[{evt.Timestamp:HH:mm:ss.fff}]** {icon} `[{trackTag}/{evt.Source}]` **{evt.Title}**");
-                    if (!string.IsNullOrWhiteSpace(evt.Summary))
-                    {
-                        sb.AppendLine($"   - *详情*：{evt.Summary}");
+                        RenderTimelineEvent(sb, ref step, evt);
                     }
-                    if (!string.IsNullOrWhiteSpace(evt.TraceId))
+                }
+                else
+                {
+                    // 超过上限时，保留前后各 100 条关键事件，中间截断提示
+                    var headEvents = foldedEvents.Take(100);
+                    var tailEvents = foldedEvents.Skip(foldedEvents.Count - 100).Take(100);
+                    var skippedCount = foldedEvents.Count - 200;
+
+                    foreach (var evt in headEvents)
                     {
-                        sb.AppendLine($"   - *链路 TraceId*：`{evt.TraceId}`");
+                        RenderTimelineEvent(sb, ref step, evt);
+                    }
+
+                    sb.AppendLine($"... *[已自动省略中间 {skippedCount} 条常规事件，完整全时序请查阅离线包 timeline.json]* ...");
+                    sb.AppendLine();
+
+                    foreach (var evt in tailEvents)
+                    {
+                        RenderTimelineEvent(sb, ref step, evt);
                     }
                 }
                 sb.AppendLine();
@@ -151,6 +156,200 @@ namespace SIASUN.RCS.Infrastructure.Logging.Diagnostics
             sb.AppendLine("> ```");
 
             return sb.ToString();
+        }
+
+        private static List<FoldedTimelineItem> FoldHeartbeatsAndPings(List<FlightPackTimelineEvent> sortedEvents)
+        {
+            var result = new List<FoldedTimelineItem>();
+            if (sortedEvents == null || sortedEvents.Count == 0) return result;
+
+            FoldedTimelineItem? currentFold = null;
+
+            foreach (var evt in sortedEvents)
+            {
+                bool isPeriodic = IsPeriodicHeartbeat(evt);
+
+                if (isPeriodic && currentFold != null &&
+                    string.Equals(currentFold.Track, evt.Track, System.StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(currentFold.Source, evt.Source, System.StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(currentFold.Title, evt.Title, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    // 累积折叠
+                    currentFold.EndTime = evt.Timestamp;
+                    currentFold.FoldCount++;
+                }
+                else
+                {
+                    if (currentFold != null)
+                    {
+                        result.Add(currentFold);
+                        currentFold = null;
+                    }
+
+                    if (isPeriodic)
+                    {
+                        currentFold = new FoldedTimelineItem
+                        {
+                            StartTime = evt.Timestamp,
+                            EndTime = evt.Timestamp,
+                            Track = evt.Track,
+                            Level = evt.Level,
+                            Source = evt.Source,
+                            Title = evt.Title,
+                            Summary = evt.Summary,
+                            TraceId = evt.TraceId,
+                            FoldCount = 1
+                        };
+                    }
+                    else
+                    {
+                        result.Add(new FoldedTimelineItem
+                        {
+                            StartTime = evt.Timestamp,
+                            EndTime = evt.Timestamp,
+                            Track = evt.Track,
+                            Level = evt.Level,
+                            Source = evt.Source,
+                            Title = evt.Title,
+                            Summary = evt.Summary,
+                            TraceId = evt.TraceId,
+                            FoldCount = 1
+                        });
+                    }
+                }
+            }
+
+            if (currentFold != null)
+            {
+                result.Add(currentFold);
+            }
+
+            return result;
+        }
+
+        private static bool IsPeriodicHeartbeat(FlightPackTimelineEvent evt)
+        {
+            if (evt.Level == "Error" || evt.Level == "Fatal" || evt.Level == "Warning")
+            {
+                return false;
+            }
+
+            return evt.Title.Contains("Heartbeat", System.StringComparison.OrdinalIgnoreCase)
+                || evt.Title.Contains("心跳", System.StringComparison.OrdinalIgnoreCase)
+                || evt.Title.Contains("Ping", System.StringComparison.OrdinalIgnoreCase)
+                || evt.Title.Contains("KeepAlive", System.StringComparison.OrdinalIgnoreCase)
+                || string.Equals(evt.Track, "Telemetry", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static List<FoldedTimelineItem> FoldFlappingAndFlicker(List<FoldedTimelineItem> items)
+        {
+            if (items.Count < 3) return items;
+
+            var result = new List<FoldedTimelineItem>();
+            int i = 0;
+            while (i < items.Count)
+            {
+                var current = items[i];
+                int j = i + 1;
+                while (j < items.Count &&
+                       string.Equals(items[j].Source, current.Source, StringComparison.OrdinalIgnoreCase) &&
+                       (items[j].StartTime - items[j - 1].EndTime).TotalSeconds <= 15.0)
+                {
+                    j++;
+                }
+
+                int count = j - i;
+                if (count >= 3)
+                {
+                    var first = items[i];
+                    var last = items[j - 1];
+                    var distinctTitles = items.Skip(i).Take(count).Select(x => x.Title).Distinct().ToList();
+
+                    var highestLevel = items.Skip(i).Take(count).Any(x => x.Level == "Error" || x.Level == "Fatal") ? "Error"
+                        : items.Skip(i).Take(count).Any(x => x.Level == "Warning") ? "Warning" : first.Level;
+
+                    result.Add(new FoldedTimelineItem
+                    {
+                        StartTime = first.StartTime,
+                        EndTime = last.EndTime,
+                        Track = first.Track,
+                        Level = highestLevel,
+                        Source = first.Source,
+                        Title = $"{first.Source} 状态频繁抖动/信号震荡",
+                        Summary = $"在短时间 ({(last.EndTime - first.StartTime).TotalSeconds:F1}s) 内检测到高频状态震荡跳变 (累计 {count} 次)，交替事件包括: [{string.Join(" / ", distinctTitles)}]。已自动降维折叠，建议重点排查传感器对焦、工位机械抖动或电气接触不稳定。",
+                        TraceId = first.TraceId,
+                        FoldCount = count,
+                        IsFlapping = true
+                    });
+
+                    i = j;
+                }
+                else
+                {
+                    result.Add(current);
+                    i++;
+                }
+            }
+
+            return result;
+        }
+
+        private static void RenderTimelineEvent(StringBuilder sb, ref int step, FoldedTimelineItem evt)
+        {
+            var icon = evt.Level switch
+            {
+                "Error" or "Fatal" => "🛑",
+                "Warning" => "⚠️",
+                _ => "🔹"
+            };
+
+            var trackTag = evt.Track switch
+            {
+                "API" => "通信",
+                "Operator" => "操作",
+                "Exception" => "异常",
+                _ => evt.Track
+            };
+
+            if (evt.IsFlapping)
+            {
+                sb.AppendLine($"{step++}. **[{evt.StartTime:HH:mm:ss.fff} ~ {evt.EndTime:HH:mm:ss.fff}]** ⚡ `[{trackTag}/{evt.Source}]` **{evt.Title}（{evt.FoldCount} 次跳变，已智能降维折叠）**");
+                if (!string.IsNullOrWhiteSpace(evt.Summary))
+                {
+                    sb.AppendLine($"   - *分析*：{evt.Summary}");
+                }
+            }
+            else if (evt.FoldCount > 1)
+            {
+                sb.AppendLine($"{step++}. **[{evt.StartTime:HH:mm:ss.fff} ~ {evt.EndTime:HH:mm:ss.fff}]** 🔹 `[{trackTag}/{evt.Source}]` **{evt.Title}（连续 {evt.FoldCount} 次采样，已自动折叠降噪）**");
+            }
+            else
+            {
+                sb.AppendLine($"{step++}. **[{evt.StartTime:HH:mm:ss.fff}]** {icon} `[{trackTag}/{evt.Source}]` **{evt.Title}**");
+            }
+
+            if (!string.IsNullOrWhiteSpace(evt.Summary) && evt.FoldCount == 1 && !evt.IsFlapping)
+            {
+                sb.AppendLine($"   - *详情*：{evt.Summary}");
+            }
+            if (!string.IsNullOrWhiteSpace(evt.TraceId) && !evt.IsFlapping)
+            {
+                sb.AppendLine($"   - *链路 TraceId*：`{evt.TraceId}`");
+            }
+        }
+
+        private class FoldedTimelineItem
+        {
+            public System.DateTime StartTime { get; set; }
+            public System.DateTime EndTime { get; set; }
+            public string Track { get; set; } = string.Empty;
+            public string Level { get; set; } = string.Empty;
+            public string Source { get; set; } = string.Empty;
+            public string Title { get; set; } = string.Empty;
+            public string? Summary { get; set; }
+            public string? TraceId { get; set; }
+            public int FoldCount { get; set; } = 1;
+            public bool IsFlapping { get; set; }
         }
     }
 }

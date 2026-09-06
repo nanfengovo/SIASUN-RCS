@@ -13,16 +13,16 @@
     }
   },
   "containers": {
-    "serviceName": "RCS-Containers",
+    "serviceName": "RCS-Containers"
   },
-  "tasks":{
-    "Initialize Solution":{
+  "tasks": {
+    "Initialize Solution": {
       "behaviour": 2,
       "startCommand": "./initialize-solution.ps1",
       "workingDirectory": "../../scripts",
       "shortDescription": "Prepares the solution for development."
     },
-    "Migrate Database":{
+    "Migrate Database": {
       "behaviour": 0,
       "startCommand": "./migrate-database.ps1",
       "workingDirectory": "../../scripts",

@@ -150,5 +150,101 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
 
             md.ShouldContain("先于系统报警出现，需重点核实是否由于现场误操作");
         }
+
+        [Fact]
+        public void BuildMarkdownNarrative_With_ConsecutiveHeartbeats_Should_Fold_And_Denoise()
+        {
+            var baseTime = new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc);
+            var metadata = new FlightPackMetadata
+            {
+                Anchor = new AnchorDto { Type = "Vehicle", Key = "AGV-01", RelatedVehicleId = "AGV-01" },
+                TimeWindow = new TimeWindowDto { QueryStartTime = baseTime, QueryEndTime = baseTime.AddMinutes(10) }
+            };
+
+            var events = new List<FlightPackTimelineEvent>();
+            // 模拟连续 50 次心跳事件
+            for (int i = 0; i < 50; i++)
+            {
+                events.Add(new FlightPackTimelineEvent
+                {
+                    Timestamp = baseTime.AddSeconds(i),
+                    Track = "Telemetry",
+                    Level = "Information",
+                    Source = "AGV-01",
+                    Title = "Vehicle Heartbeat",
+                    Summary = "Battery: 95%"
+                });
+            }
+
+            var md = _builder.BuildMarkdownNarrative(metadata, events);
+
+            // 验证心跳被成功合并折叠，而不是打印 50 行
+            md.ShouldContain("连续 50 次采样，已自动折叠降噪");
+            md.ShouldContain("Vehicle Heartbeat");
+        }
+
+        [Fact]
+        public void BuildMarkdownNarrative_With_ExcessiveEvents_Should_Truncate_With_Notice()
+        {
+            var baseTime = new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc);
+            var metadata = new FlightPackMetadata
+            {
+                Anchor = new AnchorDto { Type = "Task", Key = "T-1005", RelatedVehicleId = "AGV-05" },
+                TimeWindow = new TimeWindowDto { QueryStartTime = baseTime, QueryEndTime = baseTime.AddMinutes(10) }
+            };
+
+            var events = new List<FlightPackTimelineEvent>();
+            // 构造 250 个非心跳事件
+            for (int i = 0; i < 250; i++)
+            {
+                events.Add(new FlightPackTimelineEvent
+                {
+                    Timestamp = baseTime.AddSeconds(i),
+                    Track = "API",
+                    Level = "Information",
+                    Source = $"Service_{i}",
+                    Title = $"Step Action #{i}",
+                    Summary = $"Payload {i}"
+                });
+            }
+
+            var md = _builder.BuildMarkdownNarrative(metadata, events);
+
+            // 验证截断提示
+            md.ShouldContain("已自动省略中间 50 条常规事件");
+        }
+
+        [Fact]
+        public void BuildMarkdownNarrative_With_SensorFlapping_Should_Fold_Into_Flicker_Warning()
+        {
+            var baseTime = new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc);
+            var metadata = new FlightPackMetadata
+            {
+                Anchor = new AnchorDto { Type = "Task", Key = "T-1006", RelatedVehicleId = "AGV-06" },
+                TimeWindow = new TimeWindowDto { QueryStartTime = baseTime, QueryEndTime = baseTime.AddMinutes(10) }
+            };
+
+            var events = new List<FlightPackTimelineEvent>();
+            // 构造 6 次高频震荡闪烁事件
+            for (int i = 0; i < 6; i++)
+            {
+                events.Add(new FlightPackTimelineEvent
+                {
+                    Timestamp = baseTime.AddSeconds(i * 2),
+                    Track = "Hardware",
+                    Level = i % 2 == 0 ? "Warning" : "Information",
+                    Source = "Sensor-Dock-01",
+                    Title = i % 2 == 0 ? "光电开关遮挡" : "光电开关清除",
+                    Summary = $"Signal bounce state {i}"
+                });
+            }
+
+            var md = _builder.BuildMarkdownNarrative(metadata, events);
+
+            // 验证高频抖动折叠
+            md.ShouldContain("Sensor-Dock-01 状态频繁抖动/信号震荡");
+            md.ShouldContain("已智能降维折叠");
+            md.ShouldContain("6 次跳变");
+        }
     }
 }

@@ -247,5 +247,95 @@ namespace SIASUN.RCS.Application.Tests.Diagnostics
                 summaryText.ShouldContain("deepseek-r1:7b");
             }
         }
+
+        [Fact]
+        public async Task CollectAndPackAsync_With_EntityAuditStore_Should_Include_EntityDiffs_As_4th_Track()
+        {
+            // Arrange
+            var baseTime = new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc);
+            var request = new FlightPackRequest
+            {
+                AnchorType = "Task",
+                AnchorKey = "T-3003",
+                StartTime = baseTime,
+                EndTime = baseTime.AddMinutes(10),
+                BufferBeforeMinutes = 2,
+                BufferAfterMinutes = 2,
+                ExportedByUserName = "Tester"
+            };
+
+            var entityStore = Substitute.For<IEntityAuditLogStore>();
+            var entityDiffs = new List<EntityAuditLogEntry>
+            {
+                new()
+                {
+                    Id = 1,
+                    CreationTime = baseTime.AddMinutes(2),
+                    EntityName = "AgvTask",
+                    EntityId = "T-3003",
+                    Action = "StatusChanged",
+                    TraceId = "trace-entity-1"
+                }
+            };
+            entityStore.GetListAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<EntityAuditLogEntry>>(entityDiffs));
+
+            _opRepo.GetQueryableAsync().Returns(Task.FromResult(new List<OperationLog>().AsQueryable()));
+            _sysRepo.GetQueryableAsync().Returns(Task.FromResult(new List<SystemEventLog>().AsQueryable()));
+            _apiStore.GetListAsync(Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<ApiAuditLogEntry>>(new List<ApiAuditLogEntry>()));
+
+            _asyncExecuter.ToListAsync(Arg.Any<IQueryable<OperationLog>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new List<OperationLog>()));
+            _asyncExecuter.ToListAsync(Arg.Any<IQueryable<SystemEventLog>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new List<SystemEventLog>()));
+
+            _narrativeBuilder.BuildMarkdownNarrative(Arg.Any<FlightPackMetadata>(), Arg.Any<IReadOnlyList<FlightPackTimelineEvent>>())
+                .Returns("# Narrative");
+
+            var collector = new FlightPackCollector(
+                _opRepo,
+                _sysRepo,
+                _apiStore,
+                _narrativeBuilder,
+                _opRecorder,
+                _asyncExecuter,
+                entityAuditLogStore: entityStore);
+
+            // Act
+            var zipBytes = await collector.CollectAndPackAsync(request);
+
+            // Assert
+            zipBytes.ShouldNotBeNull();
+            using var memStream = new MemoryStream(zipBytes);
+            using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
+
+            archive.Entries.ShouldContain(e => e.FullName == "manifest.json");
+            archive.Entries.ShouldContain(e => e.FullName == "metadata.json");
+            archive.Entries.ShouldContain(e => e.FullName == "narrative.md");
+            archive.Entries.ShouldContain(e => e.FullName == "diagnostic_summary.md");
+            archive.Entries.ShouldContain(e => e.FullName == "raw/entity_diffs.json");
+
+            // Verify manifest content has no "3.0"
+            var manifestEntry = archive.GetEntry("manifest.json");
+            manifestEntry.ShouldNotBeNull();
+            using (var reader = new StreamReader(manifestEntry.Open()))
+            {
+                var content = await reader.ReadToEndAsync();
+                content.ShouldNotContain("3.0.0");
+                content.ShouldNotContain("RCS 3.0");
+            }
+
+            // Verify timeline includes Entity track
+            var timelineEntry = archive.GetEntry("timeline.json");
+            timelineEntry.ShouldNotBeNull();
+            using (var reader = new StreamReader(timelineEntry.Open()))
+            {
+                var content = await reader.ReadToEndAsync();
+                var events = JsonSerializer.Deserialize<List<FlightPackTimelineEvent>>(content);
+                events.ShouldNotBeNull();
+                events.ShouldContain(e => e.Track == "Entity");
+            }
+        }
     }
 }

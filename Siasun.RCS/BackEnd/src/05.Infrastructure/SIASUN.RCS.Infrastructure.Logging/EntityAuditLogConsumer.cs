@@ -9,17 +9,34 @@ using SIASUN.RCS.Auditing;
 
 namespace SIASUN.RCS.Infrastructure.Logging
 {
+    /// <summary>
+    /// 实体变更审计日志后台批量消费者
+    /// 从内存无锁通道拉取实体变更消息，进行高性能 JSON 序列化并批量持久化至存储介质，同时推流至诊断广播通道
+    /// </summary>
     public class EntityAuditLogConsumer : BackgroundService
     {
         private readonly EntityAuditLogChannel _channel;
         private readonly IEntityAuditLogStore _store;
         private readonly ILogger<EntityAuditLogConsumer> _logger;
+        private readonly Diagnostics.SignalR.IDiagnosticLiveStreamBroker? _liveStreamBroker;
 
-        public EntityAuditLogConsumer(EntityAuditLogChannel channel, IEntityAuditLogStore store, ILogger<EntityAuditLogConsumer> logger)
+        /// <summary>
+        /// 构造函数注入所需存储与日志依赖
+        /// </summary>
+        /// <param name="channel">内存通道</param>
+        /// <param name="store">持久化存储提供者</param>
+        /// <param name="logger">系统日志</param>
+        /// <param name="liveStreamBroker">实时诊断流广播服务（可选）</param>
+        public EntityAuditLogConsumer(
+            EntityAuditLogChannel channel,
+            IEntityAuditLogStore store,
+            ILogger<EntityAuditLogConsumer> logger,
+            Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null)
         {
             _channel = channel;
             _store = store;
             _logger = logger;
+            _liveStreamBroker = liveStreamBroker;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -68,6 +85,21 @@ namespace SIASUN.RCS.Infrastructure.Logging
                                     }
                                 }
                                 entry.PropertyChangesJson = JsonSerializer.Serialize(diff, EntityAuditLogJsonContext.CombinedOptions);
+                            }
+
+                            if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
+                            {
+                                _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
+                                {
+                                    Timestamp = entry.CreationTime,
+                                    Track = "Entity",
+                                    Level = "Information",
+                                    Source = entry.EntityName,
+                                    Title = $"[{entry.EntityName}] {entry.Action} (ID: {entry.EntityId})",
+                                    Summary = entry.PropertyChangesJson,
+                                    TraceId = entry.TraceId,
+                                    TargetId = entry.EntityId
+                                });
                             }
 
                             batch.Add(entry);

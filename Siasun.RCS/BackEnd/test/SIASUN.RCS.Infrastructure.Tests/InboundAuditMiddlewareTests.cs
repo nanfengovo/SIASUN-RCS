@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IO;
@@ -193,7 +192,7 @@ public class InboundAuditMiddlewareTests
     [InlineData("TM", "TM")]
     [InlineData("MES", "MES")]
     [InlineData(null, "Unknown")]
-    public async Task InvokeAsync_PeerResolution_ShouldIdentifyCorrectPeerFromEndpointAttribute(string attributePeerName, string expectedPeer)
+    public async Task InvokeAsync_PeerResolution_ShouldIdentifyCorrectPeerFromEndpointAttribute(string? attributePeerName, string expectedPeer)
     {
         // Arrange
         var context = new DefaultHttpContext();

@@ -362,12 +362,23 @@ public class RCSHttpApiHostModule : AbpModule
             app.UseErrorPage();
         }
 
+        // 初始化 API 审计日志过滤规则引擎与实体审计规则（预加载规则至内存快照）
+        var filterEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Infrastructure.Logging.Filtering.IAuditLogFilterEvaluator>();
+        await filterEvaluator.InitializeAsync();
+
+        var entityEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Auditing.IEntityAuditRuleEvaluator>();
+        await entityEvaluator.RefreshRulesAsync();
+
         app.UseRouting();
         app.UseStaticFiles();
         app.MapAbpStaticAssets();
         app.UseAbpStudioLink();
         app.UseAbpSecurityHeaders();
         app.UseCors();
+
+        // 报文日志拦截中间件置于鉴权之前，确保 401/403 鉴权拒绝报文（如现场 MES Token 失效）完整记录入库以支持抗辩定责
+        app.UseMiddleware<SIASUN.RCS.Infrastructure.Logging.InboundAuditMiddleware>();
+
         app.UseAuthentication();
         app.UseAbpOpenIddictValidation();
 
@@ -395,15 +406,6 @@ public class RCSHttpApiHostModule : AbpModule
             options.EnableFilter();
         });
 
-        // 初始化 API 审计日志过滤规则引擎（预加载规则至内存快照）
-        var filterEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Infrastructure.Logging.Filtering.IAuditLogFilterEvaluator>();
-        await filterEvaluator.InitializeAsync();
-
-        var entityEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Auditing.IEntityAuditRuleEvaluator>();
-        await entityEvaluator.RefreshRulesAsync();
-
-        // 报文日志拦截中间件
-        app.UseMiddleware<SIASUN.RCS.Infrastructure.Logging.InboundAuditMiddleware>();
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();

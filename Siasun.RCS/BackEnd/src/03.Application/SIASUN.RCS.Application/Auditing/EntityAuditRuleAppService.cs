@@ -23,14 +23,17 @@ namespace SIASUN.RCS.Auditing
     {
         private readonly ILocalEventBus _localEventBus;
         private readonly IEntityTypeProvider _entityTypeProvider;
+        private readonly SIASUN.RCS.Interfaces.OperationLogs.IOperationLogRecorder _operationLogRecorder;
 
         public EntityAuditRuleAppService(
             IRepository<EntityAuditRule, Guid> repository,
             ILocalEventBus localEventBus,
-            IEntityTypeProvider entityTypeProvider) : base(repository)
+            IEntityTypeProvider entityTypeProvider,
+            SIASUN.RCS.Interfaces.OperationLogs.IOperationLogRecorder operationLogRecorder) : base(repository)
         {
             _localEventBus = localEventBus;
             _entityTypeProvider = entityTypeProvider;
+            _operationLogRecorder = operationLogRecorder;
 
             CreatePolicyName = RCSPermissions.EntityAuditRules.Create;
             UpdatePolicyName = RCSPermissions.EntityAuditRules.Edit;
@@ -69,36 +72,114 @@ namespace SIASUN.RCS.Auditing
             await Task.CompletedTask;
         }
 
+        /// <summary>
+        /// 切换指定实体审计规则的启用/禁用状态
+        /// </summary>
+        /// <param name="id">规则唯一标识</param>
         [Authorize(RCSPermissions.EntityAuditRules.Edit)]
         public async Task ToggleAsync(Guid id)
         {
             var entity = await Repository.GetAsync(id);
+            var beforeState = entity.IsEnabled ? "Enabled" : "Disabled";
             entity.Toggle();
             await Repository.UpdateAsync(entity);
-            await CurrentUnitOfWork.SaveChangesAsync();
+            if (CurrentUnitOfWork != null)
+            {
+                await CurrentUnitOfWork.SaveChangesAsync();
+            }
             await _localEventBus.PublishAsync(new EntityAuditRulesChangedEvent());
+
+            var afterState = entity.IsEnabled ? "Enabled" : "Disabled";
+            _operationLogRecorder.Record(new SIASUN.RCS.Logs.OperatorLogs.OperationLogContext
+            {
+                Module = "Auditing",
+                Action = "ToggleEntityRule",
+                TargetType = "EntityAuditRule",
+                TargetId = id.ToString(),
+                BeforeState = beforeState,
+                AfterState = afterState,
+                Description = $"切换实体审计规则 [{entity.Name}] 状态为 [{afterState}]",
+                Reason = $"运维人员切换实体审计规则 [{entity.Name}] 启用状态"
+            });
         }
 
+        /// <summary>
+        /// 创建一条新的实体变更审计规则
+        /// </summary>
+        /// <param name="input">创建规则入参</param>
+        /// <returns>创建成功的规则 DTO</returns>
         public override async Task<EntityAuditRuleDto> CreateAsync(CreateUpdateEntityAuditRuleDto input)
         {
             var result = await base.CreateAsync(input);
             await _localEventBus.PublishAsync(new EntityAuditRulesChangedEvent());
+
+            _operationLogRecorder.Record(new SIASUN.RCS.Logs.OperatorLogs.OperationLogContext
+            {
+                Module = "Auditing",
+                Action = "CreateEntityRule",
+                TargetType = "EntityAuditRule",
+                TargetId = result.Id.ToString(),
+                BeforeState = null,
+                AfterState = result.IsEnabled ? "Enabled" : "Disabled",
+                Description = $"创建实体审计规则 [{result.Name}]",
+                Reason = $"运维人员新建实体审计规则 [{result.Name}], 模式: {result.Mode}, 实体模式: {result.EntityTypePattern}"
+            });
+
             return result;
         }
 
+        /// <summary>
+        /// 更新指定的实体变更审计规则
+        /// </summary>
+        /// <param name="id">规则唯一标识</param>
+        /// <param name="input">更新参数</param>
+        /// <returns>更新后的规则 DTO</returns>
         public override async Task<EntityAuditRuleDto> UpdateAsync(Guid id, CreateUpdateEntityAuditRuleDto input)
         {
             var result = await base.UpdateAsync(id, input);
             await _localEventBus.PublishAsync(new EntityAuditRulesChangedEvent());
+
+            _operationLogRecorder.Record(new SIASUN.RCS.Logs.OperatorLogs.OperationLogContext
+            {
+                Module = "Auditing",
+                Action = "UpdateEntityRule",
+                TargetType = "EntityAuditRule",
+                TargetId = id.ToString(),
+                BeforeState = null,
+                AfterState = $"Enabled={result.IsEnabled},Mode={result.Mode},Pattern={result.EntityTypePattern}",
+                Description = $"更新实体审计规则 [{result.Name}]",
+                Reason = $"运维人员修改实体审计规则 [{result.Name}] 配置"
+            });
+
             return result;
         }
 
+        /// <summary>
+        /// 删除指定的实体变更审计规则
+        /// </summary>
+        /// <param name="id">规则唯一标识</param>
         public override async Task DeleteAsync(Guid id)
         {
             await base.DeleteAsync(id);
             await _localEventBus.PublishAsync(new EntityAuditRulesChangedEvent());
+
+            _operationLogRecorder.Record(new SIASUN.RCS.Logs.OperatorLogs.OperationLogContext
+            {
+                Module = "Auditing",
+                Action = "DeleteEntityRule",
+                TargetType = "EntityAuditRule",
+                TargetId = id.ToString(),
+                BeforeState = "Existing",
+                AfterState = "Deleted",
+                Description = $"删除实体审计规则 [{id}]",
+                Reason = $"运维人员删除实体审计规则 [{id}]"
+            });
         }
 
+        /// <summary>
+        /// 获取系统中所有可发现的领域实体类型列表及其是否已配置审计规则
+        /// </summary>
+        /// <returns>可发现实体列表</returns>
         public async Task<List<EntityTypeDiscoveryDto>> GetDiscoverableEntityTypesAsync()
         {
             var entityTypes = _entityTypeProvider.GetEntityTypes();

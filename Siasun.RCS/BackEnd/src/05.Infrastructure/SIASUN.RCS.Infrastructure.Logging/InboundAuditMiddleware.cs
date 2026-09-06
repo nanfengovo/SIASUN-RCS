@@ -4,55 +4,53 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IO;
 using SIASUN.RCS.Auditing;
 using SIASUN.RCS.Infrastructure.Logging.Filtering;
+using SIASUN.RCS.Infrastructure.Logging.Masking;
+using Volo.Abp.Tracing;
 
 namespace SIASUN.RCS.Infrastructure.Logging
 {
+    /// <summary>
+    /// 入站 HTTP 报文审计拦截中间件
+    /// 负责截取外部上游接口调用的原始报文、统一 TraceId 贯穿、计算耗时并异步推入落盘通道
+    /// </summary>
     public class InboundAuditMiddleware
     {
-        /// <summary>
-        /// 中间件执行下一步
-        /// </summary>
         private readonly RequestDelegate _next;
-
-        /// <summary>
-        /// 报文流管理
-        /// </summary>
-
         private readonly RecyclableMemoryStreamManager _streamManager;
-
-        /// <summary>
-        /// 缓存API日志写入，解耦用的
-        /// </summary>
-
         private readonly ApiAuditLogChannel _channel;
-
         private readonly IAuditLogFilterEvaluator _filterEvaluator;
         private readonly Diagnostics.SignalR.IDiagnosticLiveStreamBroker? _liveStreamBroker;
+        private readonly ICorrelationIdProvider? _correlationIdProvider;
 
+        /// <summary>
+        /// 构造函数注入中间件所需组件与链路追踪提供者
+        /// </summary>
         public InboundAuditMiddleware(
             RequestDelegate next,
             RecyclableMemoryStreamManager streamManager,
             ApiAuditLogChannel channel,
             IAuditLogFilterEvaluator filterEvaluator,
-            Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null)
+            Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null,
+            ICorrelationIdProvider? correlationIdProvider = null)
         {
             _next = next;
             _streamManager = streamManager;
             _channel = channel;
             _filterEvaluator = filterEvaluator;
             _liveStreamBroker = liveStreamBroker;
+            _correlationIdProvider = correlationIdProvider;
         }
 
+        /// <summary>
+        /// 中间件请求拦截处理主逻辑
+        /// </summary>
         public async Task InvokeAsync(HttpContext context)
         {
             var path = context.Request.Path.Value ?? string.Empty;
-
-            // 解析端点特性中的对接系统名称 (Peer)
-            var endpoint = context.GetEndpoint();
-            var peerName = endpoint?.Metadata.GetMetadata<AuditPeerAttribute>()?.PeerName ?? "Unknown";
 
             // 1. 基于内存高速规则引擎判定是否需要记录审计日志（白名单驱动 + 黑名单防御），通过后走中间件下一步
             if (!_filterEvaluator.ShouldAudit(path, context.Request.Method, Direction.Inbound))
@@ -61,28 +59,44 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 return;
             }
 
+            // 解析端点特性中的对接系统名称 (Peer)
+            var endpoint = context.GetEndpoint();
+            var peerName = endpoint?.Metadata.GetMetadata<AuditPeerAttribute>()?.PeerName ?? "Unknown";
+
+            // 2. 统一解析与维护全局 TraceId / CorrelationId 锚点
+            var traceId = ResolveTraceId(context);
+            using var traceScope = SIASUN.RCS.Diagnostics.RcsTraceContext.SetScoped(traceId);
+
+            // 锁死写入请求头与上下文 Items，保证后续 EF 实体拦截器与业务操作审计获得完全一致的 TraceId
+            if (!context.Request.Headers.ContainsKey("X-Correlation-Id"))
+            {
+                context.Request.Headers["X-Correlation-Id"] = traceId;
+            }
+            context.Items["__RcsCorrelationId"] = traceId;
+
+            // 确保回写至响应头，支撑外部系统联调与事故反查
+            if (!context.Response.Headers.ContainsKey("X-Correlation-Id"))
+            {
+                context.Response.Headers["X-Correlation-Id"] = traceId;
+            }
+
             // 开始计时
             var sw = Stopwatch.StartNew();
             // 把流变成可缓存的
             context.Request.EnableBuffering();
 
-            // 2.截取请求体
+            // 3. 截取请求体
             string requestBody = string.Empty;
             if (context.Request.ContentLength > 0)
             {
-                // 把底层报文（0，1）转为人类可读的UTF_8的 并且不关闭流，避免中间件下一步到控制器是空报文
                 using var reader = new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true);
-                // 读缓存的
                 requestBody = await reader.ReadToEndAsync();
-                // 回到报文开始地方
                 context.Request.Body.Position = 0;
             }
 
-            // 3.响应流拦截 存一份报文
+            // 4. 响应流拦截
             var originalBodyStream = context.Response.Body;
-            // 获取一个容器放
             await using var memStream = _streamManager.GetStream();
-            // 用memStream换context.Response.Body
             context.Response.Body = memStream;
 
             string? responseBody = null;
@@ -99,9 +113,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
             }
             finally
             {
-                // 计时结束
                 sw.Stop();
-                // 回到报文开头
                 memStream.Position = 0;
 
                 using var respReader = new StreamReader(memStream, Encoding.UTF8, leaveOpen: true);
@@ -111,21 +123,24 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 await memStream.CopyToAsync(originalBodyStream);
                 context.Response.Body = originalBodyStream;
 
-                // 4.解析HttpMethod枚举
-                bool v = Enum.TryParse<HttpMethod>(context.Request.Method, true, out var methodEnum);
+                // 解析 HttpMethod 枚举
+                _ = Enum.TryParse<HttpMethod>(context.Request.Method, true, out var methodEnum);
 
-                // 5. 组装实体并无阻塞推入Channel
+                var maskedRequestBody = AuditDataMasker.Mask(TruncateBody(requestBody));
+                var maskedResponseBody = AuditDataMasker.Mask(TruncateBody(responseBody));
+
+                // 5. 组装实体并无阻塞推入 Channel
                 _channel.TryWrite(new ApiAuditLogEntry
                 {
-                    TraceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier,
+                    TraceId = traceId,
                     Direction = Direction.Inbound,
                     Peer = peerName,
                     HttpMethod = methodEnum,
                     Path = path,
                     StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
                     ElapsedMs = sw.ElapsedMilliseconds,
-                    RequestBody = TruncateBody(requestBody),
-                    ResponseBody = TruncateBody(responseBody),
+                    RequestBody = maskedRequestBody,
+                    ResponseBody = maskedResponseBody,
                     ClientIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
                     ClientName = context.User.Identity?.Name,
                     Exception = caughtException?.Message
@@ -143,11 +158,33 @@ namespace SIASUN.RCS.Infrastructure.Logging
                         Source = string.IsNullOrEmpty(peerName) ? "API" : peerName,
                         Title = $"{context.Request.Method} {context.Request.Path} ({context.Response.StatusCode})",
                         Summary = $"耗时: {sw.ElapsedMilliseconds}ms, 客户端: {context.Connection.RemoteIpAddress}",
-                        TraceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier
+                        TraceId = traceId
                     });
                 }
             }
+        }
 
+        private string ResolveTraceId(HttpContext context)
+        {
+            if (context.Request.Headers.TryGetValue("X-Correlation-Id", out var incomingCid) && !string.IsNullOrWhiteSpace(incomingCid))
+            {
+                return incomingCid.ToString();
+            }
+
+            if (context.Request.Headers.TryGetValue("X-Trace-Id", out var incomingTid) && !string.IsNullOrWhiteSpace(incomingTid))
+            {
+                return incomingTid.ToString();
+            }
+
+            var provider = _correlationIdProvider ?? context.RequestServices?.GetService<ICorrelationIdProvider>();
+            var providerCid = provider?.Get();
+            var ambient = SIASUN.RCS.Diagnostics.RcsTraceContext.CurrentTraceId;
+            if (!string.IsNullOrWhiteSpace(ambient))
+            {
+                return ambient;
+            }
+
+            return !string.IsNullOrWhiteSpace(context.TraceIdentifier) ? context.TraceIdentifier : Guid.NewGuid().ToString("N");
         }
 
         private static string? TruncateBody(string? body, int maxLen = 65536)

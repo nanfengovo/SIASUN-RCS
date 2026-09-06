@@ -140,5 +140,80 @@ namespace SIASUN.RCS.Infrastructure.Tests.Diagnostics
             history[1].Title.ShouldBe("Event 4");
             history[2].Title.ShouldBe("Event 5");
         }
+
+        [Fact]
+        public void Publish_WithMinLogLevel_ShouldFilterOutLowerSeverity()
+        {
+            var options = Options.Create(new SignalRDiagnosticsOptions
+            {
+                IsEnabled = true,
+                MinLogLevel = "Warning"
+            });
+
+            var broker = new DiagnosticLiveStreamBroker(options);
+
+            // Information event -> filtered out
+            broker.Publish(new LiveEventDto
+            {
+                Track = "API",
+                Level = "Information",
+                Title = "Ignored Info Event"
+            });
+
+            // Warning event -> accepted
+            broker.Publish(new LiveEventDto
+            {
+                Track = "API",
+                Level = "Warning",
+                Title = "Accepted Warn Event"
+            });
+
+            // Error event -> accepted
+            broker.Publish(new LiveEventDto
+            {
+                Track = "API",
+                Level = "Error",
+                Title = "Accepted Error Event"
+            });
+
+            var history = broker.GetHistory("all");
+            history.Count.ShouldBe(2);
+            history.Any(e => e.Title == "Ignored Info Event").ShouldBeFalse();
+            history.Any(e => e.Title == "Accepted Warn Event").ShouldBeTrue();
+            history.Any(e => e.Title == "Accepted Error Event").ShouldBeTrue();
+        }
+
+        [Fact]
+        public void Publish_ExceedingMaxActiveTopics_ShouldEvictLeastRecentlyUsedTopics()
+        {
+            var options = Options.Create(new SignalRDiagnosticsOptions
+            {
+                IsEnabled = true,
+                MaxActiveTopics = 3,
+                RingBufferCapacity = 10
+            });
+
+            var broker = new DiagnosticLiveStreamBroker(options);
+
+            // Publish events with 20 different task IDs
+            for (int i = 1; i <= 20; i++)
+            {
+                broker.Publish(new LiveEventDto
+                {
+                    Track = "API",
+                    Level = "Information",
+                    Title = $"Task Event {i}",
+                    TargetId = $"TASK-{i:D3}"
+                });
+            }
+
+            // "all" topic is permanent and must never be evicted
+            broker.GetHistory("all").ShouldNotBeEmpty();
+
+            // The earliest dynamic topics like task:TASK-001 should have been evicted
+            broker.GetHistory("task:TASK-001").ShouldBeEmpty();
+            // The most recent dynamic topic should exist
+            broker.GetHistory("task:TASK-020").ShouldNotBeEmpty();
+        }
     }
 }

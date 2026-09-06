@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using SIASUN.RCS.Infrastructure.Logging.Banner;
 
 namespace SIASUN.RCS;
 
@@ -18,38 +19,12 @@ public class Program
 
         try
         {
-            string[] logoLines = new[]
-            {
-                @"      ___                       ___           ___           ___           ___                    ___           ___           ___     ",
-                @"     /\  \          ___        /\  \         /\  \         /\__\         /\__\                  /\  \         /\  \         /\  \    ",
-                @"    /::\  \        /\  \      /::\  \       /::\  \       /:/  /        /::|  |                /::\  \       /::\  \       /::\  \   ",
-                @"   /:/\ \  \       \:\  \    /:/\:\  \     /:/\ \  \     /:/  /        /:|:|  |               /:/\:\  \     /:/\:\  \     /:/\ \  \  ",
-                @"  _\:\~\ \  \      /::\__\  /::\~\:\  \   _\:\~\ \  \   /:/  /  ___   /:/|:|  |__            /::\~\:\  \   /:/  \:\  \   _\:\~\ \  \ ",
-                @" /\ \:\ \ \__\  __/:/\/__/ /:/\:\ \:\__\ /\ \:\ \ \__\ /:/__/  /\__\ /:/ |:| /\__\          /:/\:\ \:\__\ /:/__/ \:\__\ /\ \:\ \ \__\",
-                @" \:\ \:\ \/__/ /\/:/  /    \/__\:\/:/  / \:\ \:\ \/__/ \:\  \ /:/  / \/__|:|/:/  /          \/_|::\/:/  / \:\  \  \/__/ \:\ \:\ \/__/",
-                @"  \:\ \:\__\   \::/__/          \::/  /   \:\ \:\__\    \:\  /:/  /      |:/:/  /              |:|::/  /   \:\  \        \:\ \:\__\  ",
-                @"   \:\/:/  /    \:\__\          /:/  /     \:\/:/  /     \:\/:/  /       |::/  /               |:|\/__/     \:\  \        \:\/:/  /  ",
-                @"    \::/  /      \/__/         /:/  /       \::/  /       \::/  /        /:/  /                |:|  |        \:\__\        \::/  /   ",
-                @"     \/__/                     \/__/         \/__/         \/__/         \/__/                  \|__|         \/__/         \/__/    "
-            };
+            var builder = WebApplication.CreateBuilder(args);
 
-            int[][] colors = new int[][]
-            {
-                new[] { 255, 248, 220 }, new[] { 255, 235, 160 }, new[] { 255, 215, 0 },
-                new[] { 238, 201, 0 },   new[] { 218, 165, 32 },  new[] { 205, 155, 29 },
-                new[] { 184, 134, 11 },  new[] { 160, 110, 10 },  new[] { 139, 101, 8 },
-                new[] { 110, 75,  5 },   new[] { 80,  50,  0 }
-            };
-
-            Console.WriteLine();
-            for (int i = 0; i < logoLines.Length; i++)
-            {
-                Console.WriteLine($"\x1b[38;2;{colors[i][0]};{colors[i][1]};{colors[i][2]}m{logoLines[i]}\x1b[0m");
-            }
-            Console.WriteLine();
+            // 根据 appsettings.json 中的 "Banner" 配置渲染并打印工业级控制台横幅
+            RcsBannerRenderer.Print(builder.Configuration);
 
             Log.Information("Starting SIASUN.RCS.HttpApi.Host.");
-            var builder = WebApplication.CreateBuilder(args);
 
             // 注册动态日志级别切换器 (单例)
             var logSwitchRegistry = new Infrastructure.Logging.DynamicLogSwitchRegistry();

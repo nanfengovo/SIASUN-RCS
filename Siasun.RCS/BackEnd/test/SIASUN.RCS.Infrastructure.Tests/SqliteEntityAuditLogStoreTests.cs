@@ -45,5 +45,65 @@ namespace SIASUN.RCS.Infrastructure.Tests
                 saved.PropertyChangesJson.ShouldContain("Running");
             }
         }
+
+        [Fact]
+        public async Task GetListAsync_ShouldQueryAndFilterAcrossDates()
+        {
+            var factory = new AuditLogDbContextFactory();
+            var store = new SqliteEntityAuditLogStore(factory);
+
+            var testTag = $"TEST_{Guid.NewGuid():N}";
+            var t1 = new DateTime(2097, 5, 1, 10, 0, 0, DateTimeKind.Utc);
+            var t2 = new DateTime(2097, 5, 15, 10, 0, 0, DateTimeKind.Utc);
+            var t3 = new DateTime(2097, 6, 1, 10, 0, 0, DateTimeKind.Utc);
+
+            var entries = new List<EntityAuditLogEntry>
+            {
+                new()
+                {
+                    TraceId = $"{testTag}_1",
+                    EntityName = $"AgvTask_{testTag}",
+                    EntityId = $"TASK_{testTag}",
+                    Action = "Created",
+                    CreationTime = t1
+                },
+                new()
+                {
+                    TraceId = $"{testTag}_2",
+                    EntityName = $"AgvTask_{testTag}",
+                    EntityId = $"TASK_{testTag}",
+                    Action = "Updated",
+                    CreationTime = t2
+                },
+                new()
+                {
+                    TraceId = $"{testTag}_3",
+                    EntityName = $"Vehicle_{testTag}",
+                    EntityId = $"AGV_{testTag}",
+                    Action = "Updated",
+                    CreationTime = t3
+                }
+            };
+
+            await store.SaveBatchAsync(entries);
+
+            // Query by keyword spanning both months
+            var allResult = await store.GetListAsync(new DateTime(2097, 5, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2097, 6, 2, 0, 0, 0, DateTimeKind.Utc), keyword: testTag);
+            allResult.Count.ShouldBe(3);
+
+            // Filter by entityName
+            var taskResult = await store.GetListAsync(new DateTime(2097, 5, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2097, 6, 2, 0, 0, 0, DateTimeKind.Utc), keyword: $"AgvTask_{testTag}");
+            taskResult.Count.ShouldBe(2);
+
+            // Filter by entityId
+            var idResult = await store.GetListAsync(new DateTime(2097, 5, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2097, 6, 2, 0, 0, 0, DateTimeKind.Utc), keyword: $"AGV_{testTag}");
+            idResult.Count.ShouldBe(1);
+            idResult[0].TraceId.ShouldBe($"{testTag}_3");
+
+            // Filter by traceId
+            var traceResult = await store.GetListAsync(new DateTime(2097, 5, 1, 0, 0, 0, DateTimeKind.Utc), new DateTime(2097, 6, 2, 0, 0, 0, DateTimeKind.Utc), keyword: $"{testTag}_1");
+            traceResult.Count.ShouldBe(1);
+            traceResult[0].Action.ShouldBe("Created");
+        }
     }
 }

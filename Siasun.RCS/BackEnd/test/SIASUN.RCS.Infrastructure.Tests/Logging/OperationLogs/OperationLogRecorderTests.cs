@@ -70,7 +70,7 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
             // Arrange
             // Simulate a system user (no UserId)
             _currentUser.Id.Returns((Guid?)null);
-            _currentUser.UserName.Returns((string)null);
+            _currentUser.UserName.Returns((string?)null);
             _correlationIdProvider.Get().Returns("SysCorrelationId");
 
             var module = "SystemModule";

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SIASUN RCS 3.0 | 全时序黑匣子回放 & 实时诊断看板</title>
+  <title>SIASUN RCS | 全时序黑匣子回放 & 实时诊断看板</title>
   <!-- 本地优先加载，离线车间环境支持；CDN 兜底 -->
   <script src="libs/jszip.min.js"></script>
   <script>
@@ -558,7 +558,7 @@
   <!-- Top Header -->
   <header>
     <div class="brand-title">
-      <span class="brand-badge">RCS 3.0</span>
+      <span class="brand-badge">SIASUN RCS</span>
       <span class="brand-name">全时序黑匣子回放 & 实时诊断看板</span>
     </div>
 
@@ -819,8 +819,10 @@
 
     async function parseFlightPack(zip) {
       const metaFile = zip.file('metadata.json');
+      const metaFile = zip.file('manifest.json') || zip.file('metadata.json');
       const timelineFile = zip.file('timeline.json');
       const summaryFile = zip.file('diagnostic_summary.md');
+      const summaryFile = zip.file('narrative.md') || zip.file('diagnostic_summary.md');
 
       if (!timelineFile) {
         alert('无效的飞行数据包: 缺少 timeline.json');

@@ -16,6 +16,8 @@ using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
 using SIASUN.RCS.Auditing;
 using SIASUN.RCS.Logs.OperatorLogs;
+using SIASUN.RCS.Tasks;
+using SIASUN.RCS.Vehicles;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
@@ -31,6 +33,8 @@ public class RCSDbContext :
     public DbSet<EntityAuditRule> EntityAuditRules { get; set; } = null!;
     public DbSet<SIASUN.RCS.Monitor.SystemEventLog> SystemEventLogs { get; set; } = null!;
     public DbSet<OperationLog> OperationLogs { get; set; } = null!;
+    public DbSet<AgvTask> AgvTasks { get; set; } = null!;
+    public DbSet<AgvVehicle> AgvVehicles { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -118,11 +122,58 @@ public class RCSDbContext :
             b.Property(x => x.CorrelationId).HasMaxLength(64);
             b.Property(x => x.Description).HasMaxLength(1024);
             b.Property(x => x.ErrorMessage).HasMaxLength(2048);
+            b.Property(x => x.BeforeState).HasMaxLength(512);
+            b.Property(x => x.AfterState).HasMaxLength(512);
+            b.Property(x => x.Reason).HasMaxLength(512);
+            b.Property(x => x.TaskId).HasMaxLength(64);
+            b.Property(x => x.AgvId).HasMaxLength(64);
 
             b.HasIndex(x => x.CreationTime);
             b.HasIndex(x => x.CorrelationId);
+            b.HasIndex(x => x.TaskId);
+            b.HasIndex(x => x.AgvId);
             b.HasIndex(x => new { x.TargetType, x.TargetId });
             b.HasIndex(x => new { x.Module, x.Action });
+        });
+
+        builder.Entity<AgvTask>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "AgvTasks", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TaskCode).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Status).IsRequired();
+            b.Property(x => x.WaitingEvent).HasMaxLength(128);
+            b.Property(x => x.ActiveLeg).HasMaxLength(64);
+            b.Property(x => x.AssignedVehicleCode).HasMaxLength(64);
+            b.Property(x => x.FromStation).HasMaxLength(64);
+            b.Property(x => x.ToStation).HasMaxLength(64);
+            b.Property(x => x.CarrierCode).HasMaxLength(128);
+            b.Property(x => x.BatchId).HasMaxLength(128);
+            b.Property(x => x.OptionCode).HasMaxLength(256);
+            b.Property(x => x.TraceId).HasMaxLength(64);
+            b.Property(x => x.FailureReason).HasMaxLength(1024);
+
+            b.HasIndex(x => x.TaskCode).IsUnique();
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.AssignedVehicleId);
+            b.HasIndex(x => x.TraceId);
+            b.HasIndex(x => x.CreationTime);
+        });
+
+        builder.Entity<AgvVehicle>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "AgvVehicles", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.VehicleCode).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Status).IsRequired();
+            b.Property(x => x.CurrentStation).HasMaxLength(64);
+            b.Property(x => x.IpAddress).HasMaxLength(64);
+            b.Property(x => x.ErrorMessage).HasMaxLength(1024);
+            b.Property(x => x.CurrentTaskCode).HasMaxLength(64);
+
+            b.HasIndex(x => x.VehicleCode).IsUnique();
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.CurrentTaskId);
         });
     }
 }
