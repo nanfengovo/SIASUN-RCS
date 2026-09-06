@@ -118,11 +118,17 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "异步批量持久化报文日志发生异常");
-                    // 发生异常时清空批次，避免一直重复引发错误
-                    _logger.LogError(ex, "异步批量持久化报文日志发生异常，进入退避等待");
+                    _consecutiveFailureCount++;
+                    _logger.LogError(ex, "异步批量持久化报文日志发生异常，进入退避等待 (连续失败: {Count})", _consecutiveFailureCount);
+                    // 攒批或处理阶段异常：若 batch 中仍残余特权项（非 SaveBatch 抛出时的前置异常），在清空前回灌 SpillBuffer
+                    foreach (var item in batch)
+                    {
+                        if (_channel.IsPrivilegedEntry(item))
+                        {
+                            _channel.SpillBuffer.Enqueue(item);
+                        }
+                    }
                     batch.Clear();
-                    await Task.Delay(1000, stoppingToken);
                     var delayMs = Math.Min(1000 * Math.Max(1, _consecutiveFailureCount), 5000);
                     await Task.Delay(delayMs, stoppingToken);
                 }

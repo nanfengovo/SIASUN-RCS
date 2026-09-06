@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -10,11 +12,30 @@ using SIASUN.RCS.Infrastructure.Logging;
 
 namespace SIASUN.RCS.Infrastructure.Tests;
 
-public class ApiAuditLogConsumerTests
+public class ApiAuditLogConsumerTests : IDisposable
 {
-    private readonly ApiAuditLogChannel _channel = new();
+    private readonly string _spillDir;
+    private readonly ApiAuditLogChannel _channel;
     private readonly IApiAuditLogStore _store = Substitute.For<IApiAuditLogStore>();
     private readonly ILogger<ApiAuditLogConsumer> _logger = Substitute.For<ILogger<ApiAuditLogConsumer>>();
+
+    public ApiAuditLogConsumerTests()
+    {
+        _spillDir = Path.Combine(Path.GetTempPath(), "rcs_api_test_" + Guid.NewGuid().ToString("N"));
+        _channel = new ApiAuditLogChannel(spillDir: _spillDir);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (Directory.Exists(_spillDir))
+            {
+                Directory.Delete(_spillDir, true);
+            }
+        }
+        catch { }
+    }
 
     /// <summary>
     /// 【用例 1：正常批量消费】Channel 中有日志时，Worker 应该读取并调用 IApiAuditLogStore.SaveBatchAsync 批量保存

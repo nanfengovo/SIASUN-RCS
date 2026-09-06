@@ -81,6 +81,10 @@ namespace SIASUN.RCS.Infrastructure.Logging
                                     continue;
                                 }
                             }
+
+                            // 一旦准入并出队，第一时间纳入批次追踪，确保后续任何序列化或广播异常均能被 outer catch 捕获并回灌 SpillBuffer
+                            messageBatch.Add(msg);
+
                             var entry = new EntityAuditLogEntry
                             {
                                 TraceId = msg.TraceId,
@@ -132,7 +136,6 @@ namespace SIASUN.RCS.Infrastructure.Logging
                                 });
                             }
 
-                            messageBatch.Add(msg);
                             batch.Add(entry);
                         }
 
@@ -172,7 +175,16 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "异步批量持久化实体审计日志发生异常，进入退避等待");
+                    _consecutiveFailureCount++;
+                    _logger.LogError(ex, "异步批量持久化实体审计日志发生异常，进入退避等待 (连续失败: {Count})", _consecutiveFailureCount);
+                    // 攒批或处理阶段异常：若 messageBatch 中仍残余特权项（非 SaveBatch 抛出时的前置异常），在清空前回灌 SpillBuffer
+                    foreach (var msg in messageBatch)
+                    {
+                        if (_channel.IsPrivilegedEntity(msg.EntityName))
+                        {
+                            _channel.SpillBuffer.Enqueue(msg);
+                        }
+                    }
                     batch.Clear(); // 防死循环
                     messageBatch.Clear();
                     var delayMs = Math.Min(1000 * Math.Max(1, _consecutiveFailureCount), 5000);

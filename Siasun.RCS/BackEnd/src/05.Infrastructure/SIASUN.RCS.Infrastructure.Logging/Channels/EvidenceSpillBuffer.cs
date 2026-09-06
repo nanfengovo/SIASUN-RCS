@@ -62,8 +62,7 @@ namespace SIASUN.RCS.Infrastructure.Logging.Channels
         }
 
         /// <summary>
-        /// 将一条在规定超时内未入队的特权铁证紧急写入溢出环并同步落盘保全
-        /// 异步等待直至有新的溢出事件入队
+        /// 异步等待直至有新的溢出事件入队或取消
         /// </summary>
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>等待任务</returns>
