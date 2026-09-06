@@ -217,4 +217,69 @@ public class InboundAuditMiddlewareTests
         entry.ShouldNotBeNull();
         entry.Peer.ShouldBe(expectedPeer);
     }
+
+    /// <summary>
+    /// 【用例 7：L4 洪峰自适应限流】在突发洪峰或高频请求风暴时，非特权常规 200 OK 请求被降采样过滤保盘，而 401 拒录 / 500 崩溃 / 调度干预 100% 绝对入库
+    /// </summary>
+    [Fact]
+    public async Task InvokeAsync_Under_CriticalBurst_Should_Throttle_Non_Privileged_Success_Api_While_Preserving_Errors_And_Dispatch()
+    {
+        var governor = Substitute.For<SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor>();
+        // 模拟限流策略：非特权常规 200 请求丢弃，异常 401/500 与调度特权请求准入
+        governor.ShouldAdmit("Unknown", "Information")
+            .Returns(SIASUN.RCS.Diagnostics.TrafficSamplingDecision.Drop(SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst, 0.1, "Storm"));
+        governor.ShouldAdmit(Arg.Any<string>(), "Error")
+            .Returns(SIASUN.RCS.Diagnostics.TrafficSamplingDecision.Admit(SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst));
+        governor.ShouldAdmit(Arg.Any<string>(), "Warning")
+            .Returns(SIASUN.RCS.Diagnostics.TrafficSamplingDecision.Admit(SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst));
+        governor.ShouldAdmit("Dispatch", "Information")
+            .Returns(SIASUN.RCS.Diagnostics.TrafficSamplingDecision.Admit(SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst));
+
+        // 1. 发起一个常规 200 OK 请求 -> 应该被限流丢弃，不推入 Channel
+        var normalContext = new DefaultHttpContext();
+        normalContext.Request.Method = "GET";
+        normalContext.Request.Path = "/api/v1/ping";
+        RequestDelegate nextNormal = (ctx) =>
+        {
+            ctx.Response.StatusCode = 200;
+            return Task.CompletedTask;
+        };
+        var middlewareNormal = new InboundAuditMiddleware(nextNormal, _streamManager, _channel, _filterEvaluator, null, null, governor);
+        await middlewareNormal.InvokeAsync(normalContext);
+        _channel.Reader.TryRead(out _).ShouldBeFalse(); // 证实被降采样丢弃
+
+        // 2. 发起一个 401 Unauthorized 认证失败请求 -> 核心铁证，必须 100% 写入
+        var authFailContext = new DefaultHttpContext();
+        authFailContext.Request.Method = "POST";
+        authFailContext.Request.Path = "/api/v1/dispatch/create";
+        RequestDelegate nextAuthFail = (ctx) =>
+        {
+            ctx.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        };
+        var middlewareAuth = new InboundAuditMiddleware(nextAuthFail, _streamManager, _channel, _filterEvaluator, null, null, governor);
+        await middlewareAuth.InvokeAsync(authFailContext);
+        _channel.Reader.TryRead(out var authEntry).ShouldBeTrue();
+        authEntry.ShouldNotBeNull();
+        authEntry.StatusCode.ShouldBe(401);
+
+        // 3. 发起一个 Dispatch 核心调度请求（状态码 200） -> 调度特权，必须 100% 写入
+        var dispatchContext = new DefaultHttpContext();
+        dispatchContext.Request.Method = "POST";
+        dispatchContext.Request.Path = "/api/v1/dispatch/cancel";
+        var metadata = new Microsoft.AspNetCore.Http.EndpointMetadataCollection(new AuditPeerAttribute("Dispatch"));
+        var endpoint = new Microsoft.AspNetCore.Http.Endpoint(c => Task.CompletedTask, metadata, "DispatchEndpoint");
+        dispatchContext.SetEndpoint(endpoint);
+        RequestDelegate nextDispatch = (ctx) =>
+        {
+            ctx.Response.StatusCode = 200;
+            return Task.CompletedTask;
+        };
+        var middlewareDispatch = new InboundAuditMiddleware(nextDispatch, _streamManager, _channel, _filterEvaluator, null, null, governor);
+        await middlewareDispatch.InvokeAsync(dispatchContext);
+        _channel.Reader.TryRead(out var dispatchEntry).ShouldBeTrue();
+        dispatchEntry.ShouldNotBeNull();
+        dispatchEntry.Peer.ShouldBe("Dispatch");
+        dispatchEntry.StatusCode.ShouldBe(200);
+    }
 }

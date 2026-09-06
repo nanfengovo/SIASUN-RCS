@@ -25,17 +25,26 @@ namespace SIASUN.RCS.Infrastructure.Logging
         private readonly IAuditLogFilterEvaluator _filterEvaluator;
         private readonly Diagnostics.SignalR.IDiagnosticLiveStreamBroker? _liveStreamBroker;
         private readonly ICorrelationIdProvider? _correlationIdProvider;
+        private readonly SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? _trafficGovernor;
 
         /// <summary>
         /// 构造函数注入中间件所需组件与链路追踪提供者
         /// </summary>
+        /// <param name="next">中间件委托</param>
+        /// <param name="streamManager">内存流管理器</param>
+        /// <param name="channel">报文审计管道</param>
+        /// <param name="filterEvaluator">审计规则求值器</param>
+        /// <param name="liveStreamBroker">诊断推流 Broker（可选）</param>
+        /// <param name="correlationIdProvider">关联追踪标识提供者（可选）</param>
+        /// <param name="trafficGovernor">自适应限流控制器（可选）</param>
         public InboundAuditMiddleware(
             RequestDelegate next,
             RecyclableMemoryStreamManager streamManager,
             ApiAuditLogChannel channel,
             IAuditLogFilterEvaluator filterEvaluator,
             Diagnostics.SignalR.IDiagnosticLiveStreamBroker? liveStreamBroker = null,
-            ICorrelationIdProvider? correlationIdProvider = null)
+            ICorrelationIdProvider? correlationIdProvider = null,
+            SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? trafficGovernor = null)
         {
             _next = next;
             _streamManager = streamManager;
@@ -43,6 +52,7 @@ namespace SIASUN.RCS.Infrastructure.Logging
             _filterEvaluator = filterEvaluator;
             _liveStreamBroker = liveStreamBroker;
             _correlationIdProvider = correlationIdProvider;
+            _trafficGovernor = trafficGovernor;
         }
 
         /// <summary>
@@ -128,32 +138,46 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 var maskedRequestBody = AuditDataMasker.Mask(TruncateBody(requestBody));
                 var maskedResponseBody = AuditDataMasker.Mask(TruncateBody(responseBody));
 
-                // 5. 组装实体并无阻塞推入 Channel
-                _channel.TryWrite(new ApiAuditLogEntry
+                var isErr = context.Response.StatusCode >= 500 || caughtException != null;
+                var isWarn = context.Response.StatusCode >= 400 && context.Response.StatusCode < 500;
+                var apiLevel = isErr ? "Error" : (isWarn ? "Warning" : "Information");
+
+                // L4 自适应限流保盘防护：在突发洪峰或高频请求风暴时，对常规成功报文进行平滑降采样
+                // 铁律：所有 4xx/5xx 异常（如 401 拒录、500 崩溃）与调度业务 100% 绝对入库落盘
+                var shouldAdmitApi = true;
+                if (_trafficGovernor != null)
                 {
-                    TraceId = traceId,
-                    Direction = Direction.Inbound,
-                    Peer = peerName,
-                    HttpMethod = methodEnum,
-                    Path = path,
-                    StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
-                    ElapsedMs = sw.ElapsedMilliseconds,
-                    RequestBody = maskedRequestBody,
-                    ResponseBody = maskedResponseBody,
-                    ClientIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
-                    ClientName = context.User.Identity?.Name,
-                    Exception = caughtException?.Message
-                });
+                    var decision = _trafficGovernor.ShouldAdmit(peerName, apiLevel);
+                    shouldAdmitApi = decision.IsAdmitted;
+                }
+
+                if (shouldAdmitApi)
+                {
+                    // 5. 组装实体并无阻塞推入 Channel
+                    _channel.TryWrite(new ApiAuditLogEntry
+                    {
+                        TraceId = traceId,
+                        Direction = Direction.Inbound,
+                        Peer = peerName,
+                        HttpMethod = methodEnum,
+                        Path = path,
+                        StatusCode = caughtException != null ? 500 : context.Response.StatusCode,
+                        ElapsedMs = sw.ElapsedMilliseconds,
+                        RequestBody = maskedRequestBody,
+                        ResponseBody = maskedResponseBody,
+                        ClientIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+                        ClientName = context.User.Identity?.Name,
+                        Exception = caughtException?.Message
+                    });
+                }
 
                 if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
                 {
-                    var isErr = context.Response.StatusCode >= 500 || caughtException != null;
-                    var isWarn = context.Response.StatusCode >= 400 && context.Response.StatusCode < 500;
                     _liveStreamBroker.Publish(new Diagnostics.SignalR.LiveEventDto
                     {
                         Timestamp = DateTime.UtcNow,
                         Track = "API",
-                        Level = isErr ? "Error" : (isWarn ? "Warning" : "Information"),
+                        Level = apiLevel,
                         Source = string.IsNullOrEmpty(peerName) ? "API" : peerName,
                         Title = $"{context.Request.Method} {context.Request.Path} ({context.Response.StatusCode})",
                         Summary = $"耗时: {sw.ElapsedMilliseconds}ms, 客户端: {context.Connection.RemoteIpAddress}",
