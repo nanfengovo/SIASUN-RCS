@@ -96,5 +96,30 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
             log.UserName.ShouldBe("System"); // Default fallback
             log.CorrelationId.ShouldBe("SysCorrelationId");
         }
+
+        [Fact]
+        public void Record_When_Channel_Full_Or_Closed_Should_Spill_To_SpillBuffer_And_Prevent_Evidence_Loss()
+        {
+            // Arrange: 强制关闭/写满通道模拟极端通道阻塞情况
+            _channelManager.Channel.Writer.Complete();
+
+            var module = "Dispatch";
+            var action = "EmergencyAction";
+            var targetType = "Task";
+            var targetKey = "T-999";
+            var description = "Emergency spill test";
+
+            // Act: 记录操作日志，预期在通道无法写入时安全推入 SpillBuffer 应急落盘，坚决杜绝静默丢失
+            _recorder.RecordSuccess(module, action, targetType, targetKey, description);
+
+            // Assert
+            _channelManager.SpillCount.ShouldBe(1);
+            _channelManager.PendingSpillCount.ShouldBe(1);
+            _channelManager.SpillBuffer.TryDequeue(out var spilledLog).ShouldBeTrue();
+            spilledLog.ShouldNotBeNull();
+            spilledLog.Action.ShouldBe(action);
+            spilledLog.TargetId.ShouldBe(targetKey);
+            _channelManager.PendingSpillCount.ShouldBe(0);
+        }
     }
 }

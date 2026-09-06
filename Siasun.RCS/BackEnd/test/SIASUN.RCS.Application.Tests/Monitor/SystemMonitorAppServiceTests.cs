@@ -73,11 +73,18 @@ namespace SIASUN.RCS.Application.Tests.Monitor
 
             var mockApiChannel = Substitute.For<SIASUN.RCS.Auditing.IApiAuditLogChannel>();
             mockApiChannel.SpillCount.Returns(5L);
+            mockApiChannel.PendingSpillCount.Returns(2);
             mockApiChannel.TotalQueueCount.Returns(120);
 
             var mockEntityChannel = Substitute.For<SIASUN.RCS.Auditing.IEntityAuditLogChannel>();
             mockEntityChannel.SpillCount.Returns(3L);
+            mockEntityChannel.PendingSpillCount.Returns(1);
             mockEntityChannel.TotalQueueCount.Returns(80);
+
+            var mockOpChannel = Substitute.For<SIASUN.RCS.Auditing.IOperationLogChannel>();
+            mockOpChannel.SpillCount.Returns(2L);
+            mockOpChannel.PendingSpillCount.Returns(1);
+            mockOpChannel.TotalQueueCount.Returns(10);
 
             var mockLiveStream = Substitute.For<SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider>();
             mockLiveStream.PendingCount.Returns(15);
@@ -97,6 +104,7 @@ namespace SIASUN.RCS.Application.Tests.Monitor
                 _sysRepo,
                 mockApiChannel,
                 mockEntityChannel,
+                mockOpChannel,
                 mockLiveStream,
                 mockGovernor);
 
@@ -105,15 +113,56 @@ namespace SIASUN.RCS.Application.Tests.Monitor
 
             // Assert
             report.ShouldNotBeNull();
-            report.PrivilegeSpillCount.ShouldBe(8L);
+            report.PrivilegeSpillCount.ShouldBe(10L);
+            report.PendingSpillCount.ShouldBe(4);
             report.PrivilegeSpillHealth.ShouldBe(CapacityHealthLevel.Critical);
             report.OverallHealth.ShouldBe(CapacityHealthLevel.Critical);
             report.ApiChannelDepth.ShouldBe(120);
             report.EntityChannelDepth.ShouldBe(80);
+            report.OperationChannelDepth.ShouldBe(10);
             report.LiveStreamPendingCount.ShouldBe(15);
             report.GovernorCurrentEps.ShouldBe(150.0);
             report.GovernorDropCount.ShouldBe(20);
-            report.ActiveAlerts.ShouldContain(a => a.Contains("应急溢流落盘保全已触发"));
+            report.ActiveAlerts.ShouldContain(a => a.Contains("应急溢流落盘待消费状态"));
+        }
+
+        [Fact]
+        public async Task GetCapacityHealthAsync_When_HistoricalSpillRecovered_Should_Mark_Warning()
+        {
+            // Arrange
+            _opRepo.GetCountAsync().Returns(Task.FromResult(100L));
+            _sysRepo.GetCountAsync().Returns(Task.FromResult(100L));
+
+            var mockApiChannel = Substitute.For<SIASUN.RCS.Auditing.IApiAuditLogChannel>();
+            mockApiChannel.SpillCount.Returns(5L);
+            mockApiChannel.PendingSpillCount.Returns(0);
+
+            var mockEntityChannel = Substitute.For<SIASUN.RCS.Auditing.IEntityAuditLogChannel>();
+            mockEntityChannel.SpillCount.Returns(0L);
+            mockEntityChannel.PendingSpillCount.Returns(0);
+
+            var mockOpChannel = Substitute.For<SIASUN.RCS.Auditing.IOperationLogChannel>();
+            mockOpChannel.SpillCount.Returns(0L);
+            mockOpChannel.PendingSpillCount.Returns(0);
+
+            var appService = new SystemMonitorAppService(
+                _settingProvider,
+                _opRepo,
+                _sysRepo,
+                mockApiChannel,
+                mockEntityChannel,
+                mockOpChannel);
+
+            // Act
+            var report = await appService.GetCapacityHealthAsync();
+
+            // Assert
+            report.ShouldNotBeNull();
+            report.PrivilegeSpillCount.ShouldBe(5L);
+            report.PendingSpillCount.ShouldBe(0);
+            report.PrivilegeSpillHealth.ShouldBe(CapacityHealthLevel.Warning);
+            ((int)report.OverallHealth).ShouldBeGreaterThanOrEqualTo((int)CapacityHealthLevel.Warning);
+            report.ActiveAlerts.ShouldContain(a => a.Contains("当前已全部恢复/入库"));
         }
     }
 }

@@ -1,13 +1,13 @@
 namespace SIASUN.RCS.Auditing
 {
     /// <summary>
-    /// API 报文审计日志通道领域端口契约
-    /// 提供特权审计证据溢流监控与队列积压观测能力
+    /// 操作审计日志通道领域契约
+    /// 负责暴露调度员操作轨道的积压深度与特权溢流保全指标
     /// </summary>
-    public interface IApiAuditLogChannel
+    public interface IOperationLogChannel
     {
         /// <summary>
-        /// 特权审计证据应急溢流落盘累计计数
+        /// 累计特权溢出保全总次数
         /// </summary>
         long SpillCount { get; }
 
@@ -17,14 +17,14 @@ namespace SIASUN.RCS.Auditing
         int PendingSpillCount { get; }
 
         /// <summary>
-        /// 审计日志通道当前待写入积压总深度
+        /// 综合队列当前积压深度
         /// </summary>
         int TotalQueueCount { get; }
 
         /// <summary>
-        /// 从本地磁盘回放恢复未入库的溢出日志
+        /// 从本地磁盘回放未消费的溢出操作日志
         /// </summary>
-        /// <returns>恢复条目数</returns>
+        /// <returns>回放恢复的条目数</returns>
         int RecoverDiskSpills();
     }
 }

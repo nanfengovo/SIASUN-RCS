@@ -45,6 +45,20 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // 启动时自愈回放磁盘未处理的特权实体变更溢出日志
+            try
+            {
+                var recovered = _channel.RecoverDiskSpills();
+                if (recovered > 0)
+                {
+                    _logger.LogWarning("EntityAuditLogConsumer 启动自愈成功从磁盘溢流恢复 {Count} 条特权实体变更审计日志。", recovered);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "EntityAuditLogConsumer 启动回放磁盘溢流日志失败: {Message}", ex.Message);
+            }
+
             var batch = new List<EntityAuditLogEntry>(100);
 
             while (!stoppingToken.IsCancellationRequested)

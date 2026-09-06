@@ -23,6 +23,7 @@ namespace SIASUN.RCS.Monitor
         private readonly IRepository<SystemEventLog, Guid>? _systemEventLogRepository;
         private readonly SIASUN.RCS.Auditing.IApiAuditLogChannel? _apiAuditLogChannel;
         private readonly SIASUN.RCS.Auditing.IEntityAuditLogChannel? _entityAuditLogChannel;
+        private readonly SIASUN.RCS.Auditing.IOperationLogChannel? _operationLogChannel;
         private readonly SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider? _liveStreamTelemetry;
         private readonly SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? _trafficGovernor;
 
@@ -34,6 +35,7 @@ namespace SIASUN.RCS.Monitor
         /// <param name="systemEventLogRepository">系统事件日志仓储（可选）</param>
         /// <param name="apiAuditLogChannel">API 审计日志通道（可选）</param>
         /// <param name="entityAuditLogChannel">实体审计日志通道（可选）</param>
+        /// <param name="operationLogChannel">操作审计日志通道（可选）</param>
         /// <param name="liveStreamTelemetry">实时推流遥测提供者（可选）</param>
         /// <param name="trafficGovernor">自适应流量控制器（可选）</param>
         public SystemMonitorAppService(
@@ -42,6 +44,7 @@ namespace SIASUN.RCS.Monitor
             IRepository<SystemEventLog, Guid>? systemEventLogRepository = null,
             SIASUN.RCS.Auditing.IApiAuditLogChannel? apiAuditLogChannel = null,
             SIASUN.RCS.Auditing.IEntityAuditLogChannel? entityAuditLogChannel = null,
+            SIASUN.RCS.Auditing.IOperationLogChannel? operationLogChannel = null,
             SIASUN.RCS.Diagnostics.ILiveStreamTelemetryProvider? liveStreamTelemetry = null,
             SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor? trafficGovernor = null)
         {
@@ -50,6 +53,7 @@ namespace SIASUN.RCS.Monitor
             _systemEventLogRepository = systemEventLogRepository;
             _apiAuditLogChannel = apiAuditLogChannel;
             _entityAuditLogChannel = entityAuditLogChannel;
+            _operationLogChannel = operationLogChannel;
             _liveStreamTelemetry = liveStreamTelemetry;
             _trafficGovernor = trafficGovernor;
         }
@@ -167,20 +171,33 @@ namespace SIASUN.RCS.Monitor
             // 4. 统计异步审计通道积压与特权溢流保全指标
             var apiDepth = _apiAuditLogChannel?.TotalQueueCount ?? 0;
             var entityDepth = _entityAuditLogChannel?.TotalQueueCount ?? 0;
+            var opDepth = _operationLogChannel?.TotalQueueCount ?? 0;
             var liveStreamDepth = _liveStreamTelemetry?.PendingCount ?? 0;
+
             var apiSpill = _apiAuditLogChannel?.SpillCount ?? 0;
             var entitySpill = _entityAuditLogChannel?.SpillCount ?? 0;
-            var totalSpill = apiSpill + entitySpill;
+            var opSpill = _operationLogChannel?.SpillCount ?? 0;
+            var totalSpill = apiSpill + entitySpill + opSpill;
+
+            var apiPendingSpill = _apiAuditLogChannel?.PendingSpillCount ?? 0;
+            var entityPendingSpill = _entityAuditLogChannel?.PendingSpillCount ?? 0;
+            var opPendingSpill = _operationLogChannel?.PendingSpillCount ?? 0;
+            var totalPendingSpill = apiPendingSpill + entityPendingSpill + opPendingSpill;
 
             var spillHealth = CapacityHealthLevel.Healthy;
-            if (totalSpill > 0)
+            if (totalPendingSpill > 0)
             {
                 spillHealth = CapacityHealthLevel.Critical;
-                alerts.Add($"检测到核心审计特权证据应急溢流落盘保全已触发 (累计 {totalSpill:N0} 条特权事件通过本地磁盘保全)，请排查工控机写库吞吐与通道负载！");
+                alerts.Add($"检测到核心审计特权证据正处于应急溢流落盘待消费状态 (当前未消费溢出: {totalPendingSpill:N0} 条, 累计保全: {totalSpill:N0} 条)，请排查工控机写库吞吐与通道负载！");
             }
-            else if (apiDepth > 1000 || entityDepth > 1000)
+            else if (totalSpill > 0)
             {
-                alerts.Add($"审计通道内部积压偏高 (API通道: {apiDepth}, 实体通道: {entityDepth})，请关注后台消费 Worker 处理时效。");
+                spillHealth = CapacityHealthLevel.Warning;
+                alerts.Add($"核心审计特权证据历史累计触发应急溢流保全 {totalSpill:N0} 条 (当前已全部恢复/入库)，建议关注工控机网络或写库偶发阻塞。");
+            }
+            else if (apiDepth > 1000 || entityDepth > 1000 || opDepth > 1000)
+            {
+                alerts.Add($"审计通道内部积压偏高 (API通道: {apiDepth}, 实体通道: {entityDepth}, 操作通道: {opDepth})，请关注后台消费 Worker 处理时效。");
             }
 
             // 5. 采集自适应流量控制器运行指标
@@ -210,6 +227,8 @@ namespace SIASUN.RCS.Monitor
                 DatabaseLogHealth = dbHealth,
                 ApiChannelDepth = apiDepth,
                 EntityChannelDepth = entityDepth,
+                OperationChannelDepth = opDepth,
+                PendingSpillCount = totalPendingSpill,
                 LiveStreamPendingCount = liveStreamDepth,
                 PrivilegeSpillCount = totalSpill,
                 PrivilegeSpillHealth = spillHealth,

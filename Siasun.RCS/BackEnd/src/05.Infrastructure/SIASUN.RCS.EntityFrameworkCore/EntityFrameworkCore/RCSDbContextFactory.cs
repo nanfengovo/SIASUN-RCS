@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
+/* This class is needed for EF Core console commands
+ * (like Add-Migration and Update-Database commands) */
 /// <summary>
 /// EF Core 设计时 DbContext 实例工厂（用于 Add-Migration 与 Update-Database 命令）
 /// </summary>

@@ -37,6 +37,10 @@ namespace SIASUN.RCS.Infrastructure.Logging
             // 注册实体日志 Channel(单例)
             context.Services.AddSingleton<SIASUN.RCS.Auditing.IEntityAuditLogChannel, EntityAuditLogChannel>();
 
+            // 注册操作审计日志 Channel(单例)
+            context.Services.AddSingleton<OperationLogs.OperationLogChannelManager>();
+            context.Services.AddSingleton<SIASUN.RCS.Auditing.IOperationLogChannel>(sp => sp.GetRequiredService<OperationLogs.OperationLogChannelManager>());
+
             // 注册实体审计规则评估器（单例内存快照）
             context.Services.AddSingleton<SIASUN.RCS.Auditing.IEntityAuditRuleEvaluator, Filtering.EntityAuditRuleEvaluator>();
 

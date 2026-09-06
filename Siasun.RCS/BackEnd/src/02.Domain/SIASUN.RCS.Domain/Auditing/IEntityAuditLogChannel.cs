@@ -27,8 +27,19 @@ namespace SIASUN.RCS.Auditing
         long SpillCount { get; }
 
         /// <summary>
+        /// 当前待消费的特权溢出条目数
+        /// </summary>
+        int PendingSpillCount { get; }
+
+        /// <summary>
         /// 当前综合队列等待深度（含特权、常规与溢出环待消费数）
         /// </summary>
         int TotalQueueCount { get; }
+
+        /// <summary>
+        /// 从本地磁盘回放恢复未入库的溢出日志
+        /// </summary>
+        /// <returns>恢复条目数</returns>
+        int RecoverDiskSpills();
     }
 }

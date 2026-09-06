@@ -54,6 +54,16 @@ namespace SIASUN.RCS.Monitor
         public int LiveStreamPendingCount { get; set; }
 
         /// <summary>
+        /// 调度员操作审计通道当前待消费积压深度
+        /// </summary>
+        public int OperationChannelDepth { get; set; }
+
+        /// <summary>
+        /// 当前待消费处理的特权审计证据紧急溢流条目数（若大于 0 说明正处于应急保全未完全消化状态）
+        /// </summary>
+        public int PendingSpillCount { get; set; }
+
+        /// <summary>
         /// 特权审计证据应急溢流落盘累计计数（一旦大于 0 说明瞬时满负荷触发了本地文件落盘保全）
         /// </summary>
         public long PrivilegeSpillCount { get; set; }

@@ -67,7 +67,11 @@ namespace SIASUN.RCS.Domain.Tests.Diagnostics
         [InlineData("/api/app/dispatch-intervention/cancel-task", true)]
         [InlineData("/api/app/agv-task/create", true)]
         [InlineData("/api/app/agv-vehicle/status", true)]
+        [InlineData("/api/app/operation-log/list", true)]
+        [InlineData("/api/rcs/tm/status", true)]
         [InlineData("/api/app/system-monitor/system-resources", false)]
+        [InlineData("/api/app/system-monitor?tab=task", false)]
+        [InlineData("/api/app/multitasking-benchmark", false)]
         [InlineData(null, false)]
         public void IsPrivilegedPath_EvaluatesPathCorrectly(string? path, bool expected)
         {

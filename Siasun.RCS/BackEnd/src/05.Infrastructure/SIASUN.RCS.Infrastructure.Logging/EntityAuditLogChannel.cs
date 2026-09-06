@@ -47,6 +47,17 @@ namespace SIASUN.RCS.Infrastructure.Logging
         public int TotalQueueCount => _reader.Count;
 
         /// <summary>
+        /// 特权溢出保全缓冲区实例
+        /// </summary>
+        public EvidenceSpillBuffer<EntityAuditLogMessage> SpillBuffer => _spillBuffer;
+
+        /// <summary>
+        /// 从本地磁盘回放恢复未入库的溢出日志
+        /// </summary>
+        /// <returns>恢复条目数</returns>
+        public int RecoverDiskSpills() => _spillBuffer.RecoverDiskSpills();
+
+        /// <summary>
         /// 默认构造函数，初始化双轨实体变更审计通道与特权溢出保全环
         /// </summary>
         /// <param name="privilegePolicy">特权证据策略（可选，默认为 DefaultEvidencePrivilegePolicy）</param>

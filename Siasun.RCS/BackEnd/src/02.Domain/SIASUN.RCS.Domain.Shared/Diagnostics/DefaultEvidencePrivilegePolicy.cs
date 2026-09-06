@@ -75,7 +75,8 @@ namespace SIASUN.RCS.Diagnostics
         }
 
         /// <summary>
-        /// 判定 API 路由路径是否属于特权级别（如 /dispatch, /task, /vehicle, /operation 等关键工控端点）
+        /// 判定 API 路由路径是否属于特权级别（如 /dispatch, /task, /vehicle, /operation, /tm, /mes 等关键工控端点）
+        /// 采用分段与分词匹配，杜绝 query 参数或无关子串偶然碰撞（如 multitasking）导致误判
         /// </summary>
         /// <param name="path">HTTP 请求路径</param>
         /// <returns>是否属于特权路径</returns>
@@ -86,10 +87,44 @@ namespace SIASUN.RCS.Diagnostics
                 return false;
             }
 
-            return path.Contains("dispatch", StringComparison.OrdinalIgnoreCase) ||
-                   path.Contains("task", StringComparison.OrdinalIgnoreCase) ||
-                   path.Contains("vehicle", StringComparison.OrdinalIgnoreCase) ||
-                   path.Contains("operation", StringComparison.OrdinalIgnoreCase);
+            // 1. 去除 URL Query String 与 Fragment
+            var pathSpan = path.AsSpan().Trim();
+            var qIndex = pathSpan.IndexOfAny('?', '#');
+            if (qIndex >= 0)
+            {
+                pathSpan = pathSpan.Slice(0, qIndex);
+            }
+
+            if (pathSpan.IsEmpty)
+            {
+                return false;
+            }
+
+            // 2. 按路径分隔符与分词符拆分检查各段独立 Token
+            var rawPath = pathSpan.ToString();
+            var tokens = rawPath.Split(new[] { '/', '-', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var token in tokens)
+            {
+                if (token.Equals("dispatch", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("task", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("tasks", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("agvtask", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("agvtasks", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("vehicle", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("vehicles", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("agvvehicle", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("agvvehicles", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("operation", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("operations", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("tm", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("mes", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
