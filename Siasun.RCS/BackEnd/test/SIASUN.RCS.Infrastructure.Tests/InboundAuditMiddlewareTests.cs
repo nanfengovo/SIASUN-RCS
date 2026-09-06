@@ -226,6 +226,8 @@ public class InboundAuditMiddlewareTests
     {
         var governor = Substitute.For<SIASUN.RCS.Diagnostics.IAdaptiveTrafficGovernor>();
         // 模拟限流策略：非特权常规 200 请求丢弃，异常 401/500 与调度特权请求准入
+        governor.ShouldAdmit(SIASUN.RCS.Diagnostics.DiagnosticCategories.InboundApi, "Information")
+            .Returns(SIASUN.RCS.Diagnostics.TrafficSamplingDecision.Drop(SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst, 0.1, "Storm"));
         governor.ShouldAdmit("Unknown", "Information")
             .Returns(SIASUN.RCS.Diagnostics.TrafficSamplingDecision.Drop(SIASUN.RCS.Diagnostics.TrafficGovernorLevel.CriticalBurst, 0.1, "Storm"));
         governor.ShouldAdmit(Arg.Any<string>(), "Error")

@@ -156,8 +156,12 @@ namespace SIASUN.RCS.Diagnostics
                 string.Equals(category, DiagnosticCategories.Dispatch, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, DiagnosticCategories.Task, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "AgvTask", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "Task", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, DiagnosticCategories.Vehicle, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "AgvVehicle", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "Vehicle", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "TM", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(category, "MES", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(category, "Exception", StringComparison.OrdinalIgnoreCase))
             {
                 return true;

@@ -94,8 +94,8 @@ namespace SIASUN.RCS.Infrastructure.Logging
                 var maskedRequestBody = AuditDataMasker.Mask(TruncateBody(requestBody));
                 var maskedResponseBody = AuditDataMasker.Mask(TruncateBody(responseBody));
 
-                // 6. 组装实体并推入内存无锁通道
-                _channel.TryWrite(new ApiAuditLogEntry
+                // 6. 组装实体并推入内存通道（特权异常与调度接口具备零丢失保全机制）
+                await _channel.WriteAsync(new ApiAuditLogEntry
                 {
                     TraceId = traceId,
                     Direction = Direction.Outbound,

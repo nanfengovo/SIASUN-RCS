@@ -156,8 +156,8 @@ namespace SIASUN.RCS.Infrastructure.Logging
 
                     if (shouldAdmitApi)
                     {
-                        // 5. 组装实体并无阻塞推入 Channel
-                        _channel.TryWrite(new ApiAuditLogEntry
+                        // 5. 组装实体并推入 Channel（特权异常与调度接口具备零丢失保全机制）
+                        await _channel.WriteAsync(new ApiAuditLogEntry
                         {
                             TraceId = traceId,
                             Direction = Direction.Inbound,
@@ -198,7 +198,10 @@ namespace SIASUN.RCS.Infrastructure.Logging
             if (path.Contains("/vehicle", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Vehicle;
             if (path.Contains("/operation", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Operation;
 
-            return peerName;
+            if (string.Equals(peerName, "TM", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Dispatch;
+            if (string.Equals(peerName, "MES", StringComparison.OrdinalIgnoreCase)) return SIASUN.RCS.Diagnostics.DiagnosticCategories.Task;
+
+            return SIASUN.RCS.Diagnostics.DiagnosticCategories.InboundApi;
         }
 
         private string ResolveTraceId(HttpContext context)
