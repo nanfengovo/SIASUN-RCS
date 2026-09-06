@@ -45,5 +45,15 @@ namespace SIASUN.RCS.Diagnostics
         /// AGV 车辆与硬件设备时序事件轨道
         /// </summary>
         public const string Vehicle = "Vehicle";
+
+        /// <summary>
+        /// 硬件门禁与 PLC 信号跳变时序事件轨道
+        /// </summary>
+        public const string HardwareGate = "HardwareGate";
+
+        /// <summary>
+        /// 任务工作流与步骤步进时序事件轨道
+        /// </summary>
+        public const string Workflow = "Workflow";
     }
 }

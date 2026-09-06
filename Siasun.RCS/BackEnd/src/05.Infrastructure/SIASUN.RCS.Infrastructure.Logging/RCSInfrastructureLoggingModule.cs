@@ -1,7 +1,11 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IO;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.Modularity;
 
 namespace SIASUN.RCS.Infrastructure.Logging
@@ -66,6 +70,27 @@ namespace SIASUN.RCS.Infrastructure.Logging
             context.Services.AddHostedService<Diagnostics.SignalR.DiagnosticLiveStreamWorker>();
 
             // 注册 AI 事故根因智能诊断引擎 (默认禁用，支持接入本地 Ollama / DeepSeek / 工业大模型)
+            // 注册出站报文审计委托处理器，并全局挂载至 IHttpClientFactory 默认管道（零侵入拦截所有出站请求）
+            context.Services.AddTransient<OutboundAuditDelegatingHandler>();
+            context.Services.ConfigureHttpClientDefaults(builder =>
+            {
+                builder.AddHttpMessageHandler<OutboundAuditDelegatingHandler>();
+            });
+
+            // 注册声明式操作审计 AOP 拦截器，并动态织入具备 [OperationLog] 或实现 IApplicationService 的类型
+            context.Services.AddTransient<OperationLogs.OperationLogInterceptor>();
+            context.Services.OnRegistered(regContext =>
+            {
+                var implType = regContext.ImplementationType;
+                if (implType != null &&
+                    (implType.IsDefined(typeof(SIASUN.RCS.Logs.OperatorLogs.OperationLogAttribute), true) ||
+                     implType.GetMethods().Any(m => m.IsDefined(typeof(SIASUN.RCS.Logs.OperatorLogs.OperationLogAttribute), true)) ||
+                     implType.Name.EndsWith("AppService", StringComparison.OrdinalIgnoreCase)))
+                {
+                    regContext.Interceptors.TryAdd<OperationLogs.OperationLogInterceptor>();
+                }
+            });
+
             // 注册 AI 事故根因智能诊断引擎 (默认禁用，支持接入本地 Ollama / DeepSeek / 工业大模型，并内置确定性规则引擎无缝降级)
             context.Services.Configure<SIASUN.RCS.Diagnostics.AI.AiDiagnosticsOptions>(
                 configuration.GetSection("AiDiagnostics"));

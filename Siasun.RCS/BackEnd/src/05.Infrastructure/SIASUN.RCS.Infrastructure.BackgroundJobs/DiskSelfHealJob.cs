@@ -23,22 +23,25 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
         private readonly IRepository<SystemEventLog, Guid> _eventLogRepository;
         private readonly ILogger<DiskSelfHealJob> _logger;
         private readonly SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? _diagnosticLock;
+        private readonly Volo.Abp.EventBus.Local.ILocalEventBus? _localEventBus;
 
         /// <summary>
-        /// 构造函数注入所需依赖及可选分布式锁
+        /// 构造函数注入所需依赖、可选分布式锁与本地事件总线
         /// </summary>
         public DiskSelfHealJob(
             ISettingProvider settingProvider,
             AuditLogCleanupService cleanupService,
             IRepository<SystemEventLog, Guid> eventLogRepository,
             ILogger<DiskSelfHealJob> logger,
-            SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? diagnosticLock = null)
+            SIASUN.RCS.Diagnostics.IDistributedDiagnosticLock? diagnosticLock = null,
+            Volo.Abp.EventBus.Local.ILocalEventBus? localEventBus = null)
         {
             _settingProvider = settingProvider;
             _cleanupService = cleanupService;
             _eventLogRepository = eventLogRepository;
             _logger = logger;
             _diagnosticLock = diagnosticLock;
+            _localEventBus = localEventBus;
         }
 
         /// <summary>
@@ -100,6 +103,15 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
 
                 // 在真实系统中，这里可以通过 SignalR 发送横幅报警
                 // _alertNotifier.BroadcastWarning($"磁盘空间不足 ({usedPercent}%)，系统正在紧急清理历史日志。");
+                // 通过本地领域事件解耦广播顶级红色警告横幅至前端大屏与 SignalR 诊断流
+                if (_localEventBus != null)
+                {
+                    await _localEventBus.PublishAsync(new SIASUN.RCS.Diagnostics.DiskSelfHealingTriggeredEvent(
+                        preUsagePercent: usedPercent,
+                        highWatermark: highWatermark,
+                        lowWatermark: lowWatermark,
+                        message: $"工控机磁盘空间告急 (当前 {usedPercent}%，已达到高水位线 {highWatermark}%)，系统正在紧急强制清理历史分片日志！"));
+                }
 
                 // 计算要清理到的目标剩余空间 (字节)
                 var targetUsedSpaceBytes = (long)(totalSize * (lowWatermark / 100.0));
