@@ -1,12 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.DependencyInjection;
+using SIASUN.RCS.Commands;
+using Volo.Abp.Account;
+using Volo.Abp.FeatureManagement;
+using Volo.Abp.Identity;
+using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
-using Volo.Abp.Account;
-using Volo.Abp.Identity;
-using Volo.Abp.Mapperly;
-using Volo.Abp.FeatureManagement;
-using Volo.Abp.Modularity;
-using Microsoft.Extensions.DependencyInjection;
 using Volo.Abp.TenantManagement;
 
 namespace SIASUN.RCS;
@@ -28,4 +28,16 @@ namespace SIASUN.RCS;
 public class RCSApplicationModule : AbpModule
 {
 
+    /// <summary>
+    /// 配置服务与依赖注入（注册 MediatR 与 CQRS 全局命令自动审计管道）
+    /// </summary>
+    /// <param name="context">服务配置上下文</param>
+    public override void ConfigureServices(ServiceConfigurationContext context)
+    {
+        context.Services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssembly(typeof(RCSApplicationModule).Assembly);
+            cfg.AddOpenBehavior(typeof(CommandAuditPipelineBehavior<,>));
+        });
+    }
 }

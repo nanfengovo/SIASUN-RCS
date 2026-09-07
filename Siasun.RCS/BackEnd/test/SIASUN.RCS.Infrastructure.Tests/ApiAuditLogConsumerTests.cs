@@ -72,13 +72,13 @@ public class ApiAuditLogConsumerTests : IDisposable
     }
 
     /// <summary>
-    /// 【用例 2：大批量分批切分】当 Channel 中积压超过 50 条（例如 75 条）时，Worker 应该自动分两批（50 + 25）提交
+    /// 【用例 2：大批量分批切分】当 Channel 中积压超过 50 条（例如 100 条）时，Worker 应该自动分两批（50 + 50）提交
     /// </summary>
     [Fact]
     public async Task ExecuteAsync_WhenMoreThan50Items_ShouldChunkIntoMultipleBatches()
     {
-        // ----------------- 1. Arrange: 往 Channel 写入 75 条数据 -----------------
-        for (int i = 0; i < 75; i++)
+        // ----------------- 1. Arrange: 往 Channel 写入 100 条数据（正好分两批满 50 条立即提交） -----------------
+        for (int i = 0; i < 100; i++)
         {
             _channel.TryWrite(new ApiAuditLogEntry { Path = $"/api/bulk/{i}", StatusCode = 200 });
         }
@@ -88,7 +88,7 @@ public class ApiAuditLogConsumerTests : IDisposable
 
         // ----------------- 2. Act -----------------
         var consumerTask = consumer.StartAsync(cts.Token);
-        await Task.Delay(300); // 留出时间让 Worker 完成两轮批量写入
+        await Task.Delay(500); // 留出时间让 Worker 完成两轮批量写入
         cts.Cancel();
         await consumer.StopAsync(CancellationToken.None);
 

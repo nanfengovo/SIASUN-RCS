@@ -14,6 +14,8 @@ using SIASUN.RCS.Vehicles;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace SIASUN.RCS.Application.Tests.Dispatch
@@ -35,7 +37,21 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
             _opRecorder = Substitute.For<IOperationLogRecorder>();
             _taskRepo = Substitute.For<IRepository<AgvTask, Guid>>();
             _vehicleRepo = Substitute.For<IRepository<AgvVehicle, Guid>>();
-            _appService = new DispatchInterventionAppService(_opRecorder, _taskRepo, _vehicleRepo);
+
+            var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+            services.AddSingleton(_opRecorder);
+            services.AddSingleton(_taskRepo);
+            services.AddSingleton(_vehicleRepo);
+            services.AddLogging();
+            services.AddMediatR(cfg =>
+            {
+                cfg.RegisterServicesFromAssembly(typeof(RCSApplicationModule).Assembly);
+                cfg.AddOpenBehavior(typeof(SIASUN.RCS.Commands.CommandAuditPipelineBehavior<,>));
+            });
+
+            var provider = services.BuildServiceProvider();
+            var mediator = provider.GetRequiredService<MediatR.IMediator>();
+            _appService = new DispatchInterventionAppService(mediator);
         }
 
         [Fact]
