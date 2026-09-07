@@ -225,6 +225,40 @@ namespace SIASUN.RCS.Swagger
                     operation.Description = "根据任务号或车辆编号锚点，汇聚关联 API 报文、操作轨迹与系统异常三源证据，生成离线排障飞行数据包，并可选用 AI 深度推理分析。";
                 }
             }
+
+            // --- 空间库位原子锁与人工运维 (Location Lock) ---
+            else if (path.StartsWith("api/app/location-lock"))
+            {
+                if (path.EndsWith("active-locks") && method == "GET") { operation.Summary = "获取当前所有活跃库位锁与维护状态"; operation.Description = "【核心微内核】大屏实时拉取当前所有被小车占用或处于人工检修维护中的库位列表。"; }
+                else if (path.EndsWith("lock") && method == "GET") { operation.Summary = "查询指定库位的实时锁定详情"; operation.Description = "【核心微内核】获取指定业务库位的持锁小车、任务ID、租约到期时间与锁类型。"; }
+                else if (path.EndsWith("force-unlock") && method == "POST") { operation.Summary = "调度员人工干预：强制解除库位锁"; operation.Description = "【定分止争审计】调度员人工强制释放库位锁定状态，记录修改前状态、修改后状态及人工原因。"; }
+                else if (path.EndsWith("lock-for-maintenance") && method == "POST") { operation.Summary = "调度员人工干预：库位维护封锁"; operation.Description = "【运维安全】将库位标记为维护状态，排斥所有作业小车进入或停靠。"; }
+                else if (path.EndsWith("unlock-maintenance") && method == "POST") { operation.Summary = "调度员人工干预：解除库位维护封锁"; operation.Description = "【运维安全】机台检修完毕，解除人工封锁，恢复调度系统正常可用。"; }
+            }
+
+            // --- 业务库位与 AGV 地图点位映射 (Location Map) ---
+            else if (path.StartsWith("api/app/location-map"))
+            {
+                if (path.EndsWith("active-list") && method == "GET") { operation.Summary = "获取全部已启用的点位映射列表"; operation.Description = "【地图解耦】获取系统中全部有效配置的机台库位与 AGV 实际站点映射关系。"; }
+                else if (path.EndsWith("by-location-code") && method == "GET") { operation.Summary = "根据业务库位编码精准反查地图站点"; operation.Description = "【地图解耦】查询库位对应的实际 TM 停靠站点、前置引导点及姿态角。"; }
+                else if (path.EndsWith("refresh-cache") && method == "POST") { operation.Summary = "手动触发微内核点位高速缓存热刷新"; operation.Description = "【系统自治】主动广播领域事件，即刻热重载内存并发字典点位映射。"; }
+                else if (method == "GET" && path.Contains("{id}")) { operation.Summary = "获取单个点位映射详情"; }
+                else if (method == "GET") { operation.Summary = "分页查询点位映射列表"; operation.Description = "支持按库位编码、站点编码或区域关键字进行多条件模糊筛选。"; }
+                else if (method == "POST") { operation.Summary = "创建新的库位地图点位映射"; }
+                else if (method == "PUT") { operation.Summary = "修改点位映射配置信息"; }
+                else if (method == "DELETE") { operation.Summary = "删除指定的点位映射"; }
+            }
+
+            // --- 库位 PLC 硬件联锁点表配置 (Location PLC Config) ---
+            else if (path.StartsWith("api/app/location-plc-config"))
+            {
+                if (path.EndsWith("by-location-code") && method == "GET") { operation.Summary = "根据业务库位编码获取关联的 PLC 硬件联锁点表"; }
+                else if (method == "GET" && path.Contains("{id}")) { operation.Summary = "获取单个库位 PLC 联锁配置详情"; }
+                else if (method == "GET") { operation.Summary = "分页查询库位 PLC 硬件联锁配置列表"; }
+                else if (method == "POST") { operation.Summary = "创建库位关联的 PLC 硬件联锁点表"; }
+                else if (method == "PUT") { operation.Summary = "修改库位关联的 PLC 硬件联锁配置"; }
+                else if (method == "DELETE") { operation.Summary = "删除库位关联的 PLC 硬件联锁配置"; }
+            }
         }
     }
 }

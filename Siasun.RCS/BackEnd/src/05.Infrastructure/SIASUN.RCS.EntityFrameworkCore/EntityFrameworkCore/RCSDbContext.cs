@@ -1,3 +1,4 @@
+using SIASUN.RCS.Locations;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -35,6 +36,9 @@ public class RCSDbContext :
     public DbSet<OperationLog> OperationLogs { get; set; } = null!;
     public DbSet<AgvTask> AgvTasks { get; set; } = null!;
     public DbSet<AgvVehicle> AgvVehicles { get; set; } = null!;
+    public DbSet<LocationLock> LocationLocks { get; set; } = null!;
+    public DbSet<LocationPlcConfig> LocationPlcConfigs { get; set; } = null!;
+    public DbSet<LocationMap> LocationMaps { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -158,6 +162,51 @@ public class RCSDbContext :
             b.HasIndex(x => x.AssignedVehicleId);
             b.HasIndex(x => x.TraceId);
             b.HasIndex(x => x.CreationTime);
+        });
+
+        builder.Entity<LocationLock>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "LocationLocks", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LocationCode).IsRequired().HasMaxLength(LocationLockConsts.MaxLocationCodeLength);
+            b.Property(x => x.VehicleCode).IsRequired().HasMaxLength(LocationLockConsts.MaxVehicleCodeLength);
+            b.Property(x => x.Reason).HasMaxLength(LocationLockConsts.MaxReasonLength);
+
+            b.HasIndex(x => x.LocationCode).IsUnique();
+            b.HasIndex(x => x.TaskId);
+            b.HasIndex(x => x.LeaseExpirationTime);
+        });
+
+        builder.Entity<LocationPlcConfig>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "LocationPlcConfigs", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LocationCode).IsRequired().HasMaxLength(LocationLockConsts.MaxLocationCodeLength);
+            b.Property(x => x.GatewayId).HasMaxLength(LocationLockConsts.MaxGatewayIdLength);
+            b.Property(x => x.MaterialPresenceTag).HasMaxLength(LocationLockConsts.MaxTagLength);
+            b.Property(x => x.InterlockReadyTag).HasMaxLength(LocationLockConsts.MaxTagLength);
+            b.Property(x => x.Description).HasMaxLength(512);
+
+            b.HasIndex(x => x.LocationCode).IsUnique();
+            b.HasIndex(x => x.IsEnabled);
+        });
+
+        builder.Entity<LocationMap>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "LocationMaps", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LocationCode).IsRequired().HasMaxLength(LocationMapConsts.MaxLocationCodeLength);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(LocationMapConsts.MaxNameLength);
+            b.Property(x => x.StationCode).IsRequired().HasMaxLength(LocationMapConsts.MaxStationCodeLength);
+            b.Property(x => x.PreDockStationCode).HasMaxLength(LocationMapConsts.MaxStationCodeLength);
+            b.Property(x => x.MapCode).HasMaxLength(LocationMapConsts.MaxMapCodeLength);
+            b.Property(x => x.Area).HasMaxLength(LocationMapConsts.MaxAreaLength);
+            b.Property(x => x.Description).HasMaxLength(LocationMapConsts.MaxDescriptionLength);
+
+            b.HasIndex(x => x.LocationCode).IsUnique();
+            b.HasIndex(x => x.StationCode);
+            b.HasIndex(x => x.Area);
+            b.HasIndex(x => x.IsEnabled);
         });
 
         builder.Entity<AgvVehicle>(b =>

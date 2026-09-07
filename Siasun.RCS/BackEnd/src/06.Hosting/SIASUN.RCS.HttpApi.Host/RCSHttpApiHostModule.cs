@@ -272,7 +272,11 @@ public class RCSHttpApiHostModule : AbpModule
                 {
                     var path = description.RelativePath ?? string.Empty;
 
-                    var isBusiness = path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase);
+                    var isBusiness = path.StartsWith("api/rcs/", StringComparison.OrdinalIgnoreCase)
+                                  || path.StartsWith("api/app/location-lock", StringComparison.OrdinalIgnoreCase)
+                                  || path.StartsWith("api/app/location-map", StringComparison.OrdinalIgnoreCase)
+                                  || path.StartsWith("api/app/location-plc-config", StringComparison.OrdinalIgnoreCase)
+                                  || path.StartsWith("api/app/dispatch-intervention", StringComparison.OrdinalIgnoreCase);
                     var isAdapters = path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
                     var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/system-monitor", StringComparison.OrdinalIgnoreCase)

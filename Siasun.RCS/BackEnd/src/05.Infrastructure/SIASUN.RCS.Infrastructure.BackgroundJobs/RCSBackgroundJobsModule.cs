@@ -61,6 +61,13 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
                     groupName: "Maintenance",
                     description: "每天凌晨定期清理主数据库超期 OperationLog 与 SystemEventLog",
                     cronExpression: dbRetentionCron!);
+
+                var lockCheckCron = configuration.GetValue<string>("LocationLock:LeaseCheckCron", "0 */2 * * * ?");
+                options.AddJobAndTrigger<Locations.LocationLockLeaseCheckJob>(
+                    jobName: nameof(Locations.LocationLockLeaseCheckJob),
+                    groupName: "Maintenance",
+                    description: "定期巡检超期库位锁并触发告警与自愈",
+                    cronExpression: lockCheckCron!);
             });
         }
     }

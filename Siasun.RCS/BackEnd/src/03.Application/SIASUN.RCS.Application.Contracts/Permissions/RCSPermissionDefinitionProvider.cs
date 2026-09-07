@@ -46,6 +46,20 @@ public class RCSPermissionDefinitionProvider : PermissionDefinitionProvider
         dispatchPermission.AddChild(RCSPermissions.DispatchIntervention.ForceEnd, L("Permission:DispatchIntervention.ForceEnd"));
         dispatchPermission.AddChild(RCSPermissions.DispatchIntervention.Assign, L("Permission:DispatchIntervention.Assign"));
         dispatchPermission.AddChild(RCSPermissions.DispatchIntervention.Reset, L("Permission:DispatchIntervention.Reset"));
+
+        var locationLockPermission = myGroup.AddPermission(RCSPermissions.LocationLock.Default, L("Permission:LocationLock"));
+        locationLockPermission.AddChild(RCSPermissions.LocationLock.ForceUnlock, L("Permission:LocationLock.ForceUnlock"));
+        locationLockPermission.AddChild(RCSPermissions.LocationLock.Maintenance, L("Permission:LocationLock.Maintenance"));
+
+        var locationMapPermission = myGroup.AddPermission(RCSPermissions.LocationMap.Default, L("Permission:LocationMap"));
+        locationMapPermission.AddChild(RCSPermissions.LocationMap.Create, L("Permission:LocationMap.Create"));
+        locationMapPermission.AddChild(RCSPermissions.LocationMap.Edit, L("Permission:LocationMap.Edit"));
+        locationMapPermission.AddChild(RCSPermissions.LocationMap.Delete, L("Permission:LocationMap.Delete"));
+
+        var locationPlcPermission = myGroup.AddPermission(RCSPermissions.LocationPlcConfig.Default, L("Permission:LocationPlcConfig"));
+        locationPlcPermission.AddChild(RCSPermissions.LocationPlcConfig.Create, L("Permission:LocationPlcConfig.Create"));
+        locationPlcPermission.AddChild(RCSPermissions.LocationPlcConfig.Edit, L("Permission:LocationPlcConfig.Edit"));
+        locationPlcPermission.AddChild(RCSPermissions.LocationPlcConfig.Delete, L("Permission:LocationPlcConfig.Delete"));
     }
 
     private static LocalizableString L(string name)

@@ -4,6 +4,9 @@
     "AppName": "RCS",
     "Menu:Home": "Home",
     "LongWelcomeMessage": "Welcome to the application. This is a startup project based on the ABP framework. For more information visit",
-    "Welcome": "Welcome"
+    "Welcome": "Welcome",
+    "Permission:LocationLock": "Location Locks & Maintenance",
+    "Permission:LocationLock.ForceUnlock": "Force Unlock Location",
+    "Permission:LocationLock.Maintenance": "Lock/Unlock for Maintenance"
   }
 }

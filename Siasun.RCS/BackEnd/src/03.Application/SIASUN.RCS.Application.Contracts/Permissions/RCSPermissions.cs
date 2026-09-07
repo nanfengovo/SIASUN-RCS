@@ -173,4 +173,77 @@ public static class RCSPermissions
         /// </summary>
         public const string Reset = Default + ".Reset";
     }
+
+    /// <summary>
+    /// 物理库位锁与人工运维管理权限定义
+    /// </summary>
+    public static class LocationLock
+    {
+        /// <summary>
+        /// 库位锁管理默认权限
+        /// </summary>
+        public const string Default = GroupName + ".LocationLock";
+
+        /// <summary>
+        /// 调度员强制解锁权限
+        /// </summary>
+        public const string ForceUnlock = Default + ".ForceUnlock";
+
+        /// <summary>
+        /// 调度员人工维护封锁与解封权限
+        /// </summary>
+        public const string Maintenance = Default + ".Maintenance";
+    }
+
+    /// <summary>
+    /// 业务库位与 AGV 地图点位映射管理权限定义
+    /// </summary>
+    public static class LocationMap
+    {
+        /// <summary>
+        /// 点位映射管理默认查看权限
+        /// </summary>
+        public const string Default = GroupName + ".LocationMap";
+
+        /// <summary>
+        /// 创建点位映射权限
+        /// </summary>
+        public const string Create = Default + ".Create";
+
+        /// <summary>
+        /// 编辑点位映射权限
+        /// </summary>
+        public const string Edit = Default + ".Edit";
+
+        /// <summary>
+        /// 删除点位映射权限
+        /// </summary>
+        public const string Delete = Default + ".Delete";
+    }
+
+    /// <summary>
+    /// 库位 PLC 硬件联锁配置管理权限定义
+    /// </summary>
+    public static class LocationPlcConfig
+    {
+        /// <summary>
+        /// 库位 PLC 联锁配置默认权限
+        /// </summary>
+        public const string Default = GroupName + ".LocationPlcConfig";
+
+        /// <summary>
+        /// 创建权限
+        /// </summary>
+        public const string Create = Default + ".Create";
+
+        /// <summary>
+        /// 编辑权限
+        /// </summary>
+        public const string Edit = Default + ".Edit";
+
+        /// <summary>
+        /// 删除权限
+        /// </summary>
+        public const string Delete = Default + ".Delete";
+    }
 }

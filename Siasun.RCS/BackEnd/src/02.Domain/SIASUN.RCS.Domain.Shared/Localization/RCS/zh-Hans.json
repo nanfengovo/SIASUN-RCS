@@ -57,6 +57,17 @@
     "Permission:DispatchIntervention.Cancel": "取消任务",
     "Permission:DispatchIntervention.ForceEnd": "强制结束任务",
     "Permission:DispatchIntervention.Assign": "强制指派车辆",
-    "Permission:DispatchIntervention.Reset": "复位车辆故障状态"
+    "Permission:DispatchIntervention.Reset": "复位车辆故障状态",
+    "Permission:LocationLock": "空间库位原子锁与运维管理",
+    "Permission:LocationLock.ForceUnlock": "强制解除库位锁",
+    "Permission:LocationLock.Maintenance": "库位人工维护封锁与解封",
+    "Permission:LocationMap": "库位地图点位映射管理",
+    "Permission:LocationMap.Create": "创建点位映射",
+    "Permission:LocationMap.Edit": "修改点位映射",
+    "Permission:LocationMap.Delete": "删除点位映射",
+    "Permission:LocationPlcConfig": "库位PLC联锁配置管理",
+    "Permission:LocationPlcConfig.Create": "创建库位PLC联锁",
+    "Permission:LocationPlcConfig.Edit": "修改库位PLC联锁",
+    "Permission:LocationPlcConfig.Delete": "删除库位PLC联锁"
   }
 }
