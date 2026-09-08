@@ -52,7 +52,7 @@ namespace SIASUN.RCS.Tasks.Workflow
 
         /// <inheritdoc />
         public async Task<StepExecutionResult> ExecuteCurrentStepAsync(
-            AgvTask task,
+            IWorkflowTask task,
             string workflowKey = "Default",
             CancellationToken cancellationToken = default)
         {
@@ -157,7 +157,7 @@ namespace SIASUN.RCS.Tasks.Workflow
 
         /// <inheritdoc />
         public async Task<StepExecutionResult> ResumeBySignalAsync(
-            AgvTask task,
+            IWorkflowTask task,
             string signalEvent,
             object? payload = null,
             string workflowKey = "Default",
@@ -209,7 +209,7 @@ namespace SIASUN.RCS.Tasks.Workflow
 
         /// <inheritdoc />
         public async Task<bool> RollbackToStepAsync(
-            AgvTask task,
+            IWorkflowTask task,
             int targetStepIndex,
             string reason,
             string workflowKey = "Default",

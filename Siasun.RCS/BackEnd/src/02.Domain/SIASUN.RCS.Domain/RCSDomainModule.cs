@@ -27,6 +27,8 @@ namespace SIASUN.RCS;
 /// </summary>
 [DependsOn(
     typeof(RCSDomainSharedModule),
+    typeof(RCSCoreSchemaModule),
+    typeof(RCSCoreWorkflowModule),
     typeof(AbpAuditLoggingDomainModule),
     typeof(AbpCachingModule),
     typeof(AbpBackgroundJobsDomainModule),

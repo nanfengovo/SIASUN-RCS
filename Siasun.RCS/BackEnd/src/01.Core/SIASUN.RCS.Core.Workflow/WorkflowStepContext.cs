@@ -9,9 +9,9 @@ namespace SIASUN.RCS.Tasks.Workflow
     public class WorkflowStepContext
     {
         /// <summary>
-        /// 当前关联的调度任务聚合根
+        /// 当前关联的调度任务契约
         /// </summary>
-        public AgvTask Task { get; }
+        public IWorkflowTask Task { get; }
 
         /// <summary>
         /// 依赖注入服务提供者（用于按需解析外部硬件适配器或仓储）
@@ -31,7 +31,7 @@ namespace SIASUN.RCS.Tasks.Workflow
         /// <summary>
         /// 构造函数
         /// </summary>
-        public WorkflowStepContext(AgvTask task, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
+        public WorkflowStepContext(IWorkflowTask task, IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
         {
             Task = task;
             ServiceProvider = serviceProvider;

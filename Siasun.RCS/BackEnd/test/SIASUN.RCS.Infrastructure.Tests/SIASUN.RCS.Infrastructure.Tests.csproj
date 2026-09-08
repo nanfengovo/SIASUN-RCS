@@ -25,7 +25,8 @@
     <ProjectReference Include="..\..\src\05.Infrastructure\SIASUN.RCS.Infrastructure.Logging\SIASUN.RCS.Infrastructure.Logging.csproj" />
     <ProjectReference Include="..\..\src\05.Infrastructure\SIASUN.RCS.Infrastructure.AuditLog.Sqlite\SIASUN.RCS.Infrastructure.AuditLog.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\05.Infrastructure\SIASUN.RCS.Infrastructure.BackgroundJobs\SIASUN.RCS.Infrastructure.BackgroundJobs.csproj" />
-    <ProjectReference Include="..\..\src\04.Adapters\SIASUN.RCS.Adapters.Hardware\SIASUN.RCS.Adapters.Hardware.csproj" />
+    <ProjectReference Include="..\..\src\04.Adapters\SIASUN.RCS.Adapters.Passbox\SIASUN.RCS.Adapters.Passbox.csproj" />
+    <ProjectReference Include="..\..\src\04.Adapters\SIASUN.RCS.Adapters.Plc.S7\SIASUN.RCS.Adapters.Plc.S7.csproj" />
     <ProjectReference Include="..\SIASUN.RCS.TestBase\SIASUN.RCS.TestBase.csproj" />
   </ItemGroup>
 

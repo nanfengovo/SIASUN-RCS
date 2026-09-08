@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SIASUN.RCS.Domain.Shared\SIASUN.RCS.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\01.Core\SIASUN.RCS.Core.Schema\SIASUN.RCS.Core.Schema.csproj" />
+    <ProjectReference Include="..\..\01.Core\SIASUN.RCS.Core.Workflow\SIASUN.RCS.Core.Workflow.csproj" />
   </ItemGroup>
 
   <ItemGroup>

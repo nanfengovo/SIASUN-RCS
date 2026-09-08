@@ -1,14 +1,15 @@
 using System;
 using SIASUN.RCS.Tasks.Events;
+using SIASUN.RCS.Tasks.Workflow;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
 namespace SIASUN.RCS.Tasks
 {
     /// <summary>
-    /// AGV 调度任务聚合根（严格遵循 SIASUN RCS 5 状态粗粒度生命周期规范）
+    /// AGV 调度任务聚合根（严格遵循 SIASUN RCS 5 状态粗粒度生命周期规范，实现 IWorkflowTask 驱动契约）
     /// </summary>
-    public class AgvTask : FullAuditedAggregateRoot<Guid>
+    public class AgvTask : FullAuditedAggregateRoot<Guid>, IWorkflowTask
     {
         /// <summary>
         /// 业务任务编号（不可重复）

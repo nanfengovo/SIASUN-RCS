@@ -35,7 +35,6 @@ namespace SIASUN.RCS.Commands.Tasks
             Check.NotNull(command, nameof(command));
             Check.NotNullOrWhiteSpace(command.TaskCode, nameof(command.TaskCode));
 
-            var existing = await _taskRepository.FirstOrDefaultAsync(t => t.TaskCode == command.TaskCode, cancellationToken: cancellationToken);
             var existing = await _taskRepository.FindAsync(t => t.TaskCode == command.TaskCode, cancellationToken: cancellationToken);
             if (existing != null)
             {
