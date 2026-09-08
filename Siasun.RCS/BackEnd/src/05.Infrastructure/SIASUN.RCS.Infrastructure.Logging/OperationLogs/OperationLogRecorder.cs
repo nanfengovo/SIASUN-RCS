@@ -120,6 +120,8 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
                 {
                     _channelManager.SpillBuffer.Enqueue(log);
                 }
+                // 通道已满时立即入队特权内存溢出环（SpillBuffer）保全并异步应急落盘，0 毫秒同步等待，彻底杜绝调用方线程阻塞
+                _channelManager.SpillBuffer.Enqueue(log);
             }
 
             if (_liveStreamBroker != null && _liveStreamBroker.IsEnabled)
