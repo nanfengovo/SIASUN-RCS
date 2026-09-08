@@ -52,6 +52,11 @@ namespace SIASUN.RCS.Infrastructure.Logging
             context.Services.AddHostedService<ApiAuditLogConsumer>();
             context.Services.AddHostedService<EntityAuditLogConsumer>();
 
+            // 注册任务细粒度步骤剖析 Channel、Profiler 与后台批量写入 Worker
+            context.Services.AddSingleton<Profiling.TaskProfilingChannel>();
+            context.Services.AddSingleton<SIASUN.RCS.Tasks.Profiling.ITaskProfiler, Profiling.TaskProfiler>();
+            context.Services.AddHostedService<Profiling.TaskProfilingConsumerWorker>();
+
             // 注册 SignalR 实时推流中台（支持规范 DiagnosticLiveStream 与 SignalRDiagnostics 双节配置驱动）
             var configuration = context.Services.GetConfiguration();
             context.Services.Configure<SIASUN.RCS.Diagnostics.DiagnosticLiveStreamOptions>(options =>

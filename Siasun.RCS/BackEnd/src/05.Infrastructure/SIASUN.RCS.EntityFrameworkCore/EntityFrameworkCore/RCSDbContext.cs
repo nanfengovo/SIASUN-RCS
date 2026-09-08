@@ -19,6 +19,7 @@ using SIASUN.RCS.Auditing;
 using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Tasks;
 using SIASUN.RCS.Vehicles;
+using SIASUN.RCS.Tasks.Profiling;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
@@ -39,6 +40,7 @@ public class RCSDbContext :
     public DbSet<LocationLock> LocationLocks { get; set; } = null!;
     public DbSet<LocationPlcConfig> LocationPlcConfigs { get; set; } = null!;
     public DbSet<LocationMap> LocationMaps { get; set; } = null!;
+    public DbSet<TaskStepProfiling> TaskStepProfilings { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -131,6 +133,8 @@ public class RCSDbContext :
             b.Property(x => x.Reason).HasMaxLength(512);
             b.Property(x => x.TaskId).HasMaxLength(64);
             b.Property(x => x.AgvId).HasMaxLength(64);
+            b.Property(x => x.ElapsedMilliseconds);
+            b.HasIndex(x => x.ElapsedMilliseconds);
 
             b.HasIndex(x => x.CreationTime);
             b.HasIndex(x => x.CorrelationId);
@@ -154,6 +158,8 @@ public class RCSDbContext :
             b.Property(x => x.CarrierCode).HasMaxLength(128);
             b.Property(x => x.BatchId).HasMaxLength(128);
             b.Property(x => x.OptionCode).HasMaxLength(256);
+            b.Property(x => x.OptionCodeSchemaCode).HasMaxLength(64);
+            b.Property(x => x.OptionCodeSchemaVersion);
             b.Property(x => x.TraceId).HasMaxLength(64);
             b.Property(x => x.FailureReason).HasMaxLength(1024);
 
@@ -223,6 +229,29 @@ public class RCSDbContext :
             b.HasIndex(x => x.VehicleCode).IsUnique();
             b.HasIndex(x => x.Status);
             b.HasIndex(x => x.CurrentTaskId);
+        });
+
+        builder.Entity<TaskStepProfiling>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "TaskStepProfilings", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TaskCode).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Subsystem).IsRequired().HasMaxLength(32);
+            b.Property(x => x.OperationName).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Status).IsRequired().HasMaxLength(32);
+            b.Property(x => x.Summary).HasMaxLength(512);
+            b.Property(x => x.BatchId).HasMaxLength(128);
+            b.Property(x => x.AgvId).HasMaxLength(64);
+            b.Property(x => x.ActiveLeg).HasMaxLength(64);
+            b.Property(x => x.Details).HasMaxLength(4000);
+            b.Property(x => x.TraceId).HasMaxLength(64);
+
+            b.HasIndex(x => x.TaskCode);
+            b.HasIndex(x => x.AgvId);
+            b.HasIndex(x => x.Subsystem);
+            b.HasIndex(x => x.StartTime);
+            b.HasIndex(x => new { x.TaskCode, x.StartTime });
+            b.HasIndex(x => new { x.Subsystem, x.DurationMs });
         });
     }
 }

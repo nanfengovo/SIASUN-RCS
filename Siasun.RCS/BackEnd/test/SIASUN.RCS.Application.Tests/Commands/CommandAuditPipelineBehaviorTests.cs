@@ -158,5 +158,48 @@ namespace SIASUN.RCS.Application.Tests.Commands
                 ctx.TargetType == "Command"
             ), OperationLogStatus.Success, null);
         }
+        [Fact]
+        public async Task Handle_WhenCommandHasTaskId_Should_RecordElapsedMilliseconds_And_TriggerTaskProfiler()
+        {
+            // Arrange
+            var taskProfiler = Substitute.For<SIASUN.RCS.Tasks.Profiling.ITaskProfiler>();
+            var behavior = new CommandAuditPipelineBehavior<TestAuditableTaskCommand, TestCommandResponse>(_opRecorder, Substitute.For<ILogger<CommandAuditPipelineBehavior<TestAuditableTaskCommand, TestCommandResponse>>>(), taskProfiler);
+            var cmd = new TestAuditableTaskCommand("TASK-10086", "AGV-02");
+
+            RequestHandlerDelegate<TestCommandResponse> next = (ct) => Task.FromResult(new TestCommandResponse());
+
+            // Act
+            await behavior.Handle(cmd, next, CancellationToken.None);
+
+            // Assert
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.ElapsedMilliseconds.HasValue && ctx.ElapsedMilliseconds.Value >= 0 &&
+                ctx.TaskId == "TASK-10086" &&
+                ctx.AgvId == "AGV-02"
+            ), OperationLogStatus.Success, null);
+
+            taskProfiler.Received(1).RecordStep(
+                taskCode: "TASK-10086",
+                subsystem: SIASUN.RCS.Profiling.ProfilingSubsystem.Dispatcher,
+                operationName: "DispatchCommand",
+                durationMs: Arg.Any<long>(),
+                status: "Success",
+                summary: Arg.Any<string?>(),
+                agvId: "AGV-02"
+            );
+        }
+
+        public record TestAuditableTaskCommand(string TaskIdValue, string AgvIdValue) : ICommand<TestCommandResponse>, IAuditableCommand
+        {
+            public string Module => "Dispatch";
+            public string Action => "DispatchCommand";
+            public string TargetType => "Task";
+            public string? TargetId => TaskIdValue;
+            public string? TaskId => TaskIdValue;
+            public string? AgvId => AgvIdValue;
+            public string? Reason => "测试任务派发耗时";
+            public string? Description => "任务派发命令";
+        }
+
     }
 }

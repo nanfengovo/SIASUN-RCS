@@ -70,6 +70,16 @@ namespace SIASUN.RCS.Tasks
         public string? OptionCode { get; private set; }
 
         /// <summary>
+        /// 编译生成 OptionCode 所使用的 Schema 代号（例如 "txc_demo"、"erack"、"molding"）
+        /// </summary>
+        public string? OptionCodeSchemaCode { get; private set; }
+
+        /// <summary>
+        /// 编译生成 OptionCode 所使用的 Schema 版本号
+        /// </summary>
+        public int? OptionCodeSchemaVersion { get; private set; }
+
+        /// <summary>
         /// 全链路贯穿 TraceId
         /// </summary>
         public string? TraceId { get; private set; }
@@ -107,6 +117,8 @@ namespace SIASUN.RCS.Tasks
         /// <param name="batchId">批次号</param>
         /// <param name="optionCode">OptionCode 指令串</param>
         /// <param name="traceId">链路追踪 TraceId</param>
+        /// <param name="optionCodeSchemaCode">使用的 Schema 代号</param>
+        /// <param name="optionCodeSchemaVersion">使用的 Schema 版本号</param>
         public AgvTask(
             Guid id,
             string taskCode,
@@ -115,7 +127,9 @@ namespace SIASUN.RCS.Tasks
             string? carrierCode = null,
             string? batchId = null,
             string? optionCode = null,
-            string? traceId = null) : base(id)
+            string? traceId = null,
+            string? optionCodeSchemaCode = null,
+            int? optionCodeSchemaVersion = null) : base(id)
         {
             TaskCode = Check.NotNullOrWhiteSpace(taskCode, nameof(taskCode), maxLength: 64);
             FromStation = fromStation;
@@ -124,6 +138,8 @@ namespace SIASUN.RCS.Tasks
             BatchId = batchId;
             OptionCode = optionCode;
             TraceId = traceId;
+            OptionCodeSchemaCode = optionCodeSchemaCode;
+            OptionCodeSchemaVersion = optionCodeSchemaVersion;
             Status = AgvTaskStatus.Pending;
             StepIndex = 0;
         }
@@ -134,7 +150,8 @@ namespace SIASUN.RCS.Tasks
         /// <param name="vehicleId">AGV 主键</param>
         /// <param name="vehicleCode">AGV 编号</param>
         /// <param name="traceId">贯穿 TraceId</param>
-        public void Start(Guid vehicleId, string vehicleCode, string? traceId = null)
+        /// <param name="startTime">任务开始时间（可选，默认当前时间）</param>
+        public void Start(Guid vehicleId, string vehicleCode, string? traceId = null, DateTime? startTime = null)
         {
             if (Status != AgvTaskStatus.Pending)
             {
@@ -151,7 +168,7 @@ namespace SIASUN.RCS.Tasks
             }
 
             Status = AgvTaskStatus.Running;
-            StartTime = DateTime.UtcNow;
+            StartTime = startTime ?? DateTime.UtcNow;
             StepIndex = 1;
         }
 
@@ -197,7 +214,8 @@ namespace SIASUN.RCS.Tasks
         /// <summary>
         /// 任务正常执行完成，标记状态为 Succeeded
         /// </summary>
-        public void Complete()
+        /// <param name="endTime">任务完成时间（可选，默认当前时间）</param>
+        public void Complete(DateTime? endTime = null)
         {
             if (Status != AgvTaskStatus.Running)
             {
@@ -207,7 +225,7 @@ namespace SIASUN.RCS.Tasks
             }
 
             Status = AgvTaskStatus.Succeeded;
-            EndTime = DateTime.UtcNow;
+            EndTime = endTime ?? DateTime.UtcNow;
             WaitingEvent = null;
 
             AddLocalEvent(new TaskLifecycleEndedEvent(
@@ -287,6 +305,25 @@ namespace SIASUN.RCS.Tasks
                 TraceId,
                 AssignedVehicleCode,
                 EndTime.Value));
+        }
+
+        /// <summary>
+        /// 冻结并固化任务 OptionCode 及其关联 Schema 快照（杜绝主数据修改导致在途运单漂移）
+        /// </summary>
+        /// <param name="optionCode">编译好的 OptionCode 报文字符串</param>
+        /// <param name="schemaCode">使用的 Schema 代号（可选）</param>
+        /// <param name="schemaVersion">使用的 Schema 版本号（可选）</param>
+        public void FreezeOptionCode(string optionCode, string? schemaCode = null, int? schemaVersion = null)
+        {
+            OptionCode = Check.NotNullOrWhiteSpace(optionCode, nameof(optionCode));
+            if (!string.IsNullOrWhiteSpace(schemaCode))
+            {
+                OptionCodeSchemaCode = schemaCode;
+            }
+            if (schemaVersion.HasValue)
+            {
+                OptionCodeSchemaVersion = schemaVersion;
+            }
         }
     }
 }

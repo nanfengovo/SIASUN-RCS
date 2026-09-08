@@ -93,7 +93,8 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
                 afterState: context.AfterState,
                 reason: context.Reason,
                 taskId: taskId,
-                agvId: agvId
+                agvId: agvId,
+                elapsedMilliseconds: context.ElapsedMilliseconds
             );
 
             if (!_channelManager.Channel.Writer.TryWrite(log))

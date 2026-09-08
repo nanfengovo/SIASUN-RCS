@@ -8,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using SIASUN.RCS.Interfaces.OperationLogs;
 using SIASUN.RCS.Logs.OperatorLog;
 using SIASUN.RCS.Logs.OperatorLogs;
+using SIASUN.RCS.Profiling;
+using SIASUN.RCS.Tasks.Profiling;
 
 namespace SIASUN.RCS.Commands
 {
@@ -24,18 +26,22 @@ namespace SIASUN.RCS.Commands
     {
         private readonly IOperationLogRecorder _operationLogRecorder;
         private readonly ILogger<CommandAuditPipelineBehavior<TRequest, TResponse>> _logger;
+        private readonly ITaskProfiler? _taskProfiler;
 
         /// <summary>
         /// 构造函数注入操作审计记录器与日志器
         /// </summary>
         /// <param name="operationLogRecorder">操作审计记录器</param>
         /// <param name="logger">日志器</param>
+        /// <param name="taskProfiler">任务步骤剖析器（可选）</param>
         public CommandAuditPipelineBehavior(
             IOperationLogRecorder operationLogRecorder,
-            ILogger<CommandAuditPipelineBehavior<TRequest, TResponse>> logger)
+            ILogger<CommandAuditPipelineBehavior<TRequest, TResponse>> logger,
+            ITaskProfiler? taskProfiler = null)
         {
             _operationLogRecorder = operationLogRecorder;
             _logger = logger;
+            _taskProfiler = taskProfiler;
         }
 
         /// <summary>
@@ -83,8 +89,21 @@ namespace SIASUN.RCS.Commands
                     BeforeState = beforeState,
                     AfterState = afterState,
                     Reason = reason,
-                    Description = $"{description} (耗时: {sw.ElapsedMilliseconds}ms)"
+                    Description = $"{description} (耗时: {sw.ElapsedMilliseconds}ms)",
+                    ElapsedMilliseconds = sw.ElapsedMilliseconds
                 }, OperationLogStatus.Success);
+
+                if (!string.IsNullOrWhiteSpace(taskId))
+                {
+                    _taskProfiler?.RecordStep(
+                        taskCode: taskId,
+                        subsystem: ProfilingSubsystem.Dispatcher,
+                        operationName: action,
+                        durationMs: sw.ElapsedMilliseconds,
+                        status: "Success",
+                        summary: description,
+                        agvId: agvId);
+                }
 
                 return response;
             }
@@ -103,8 +122,22 @@ namespace SIASUN.RCS.Commands
                     BeforeState = null,
                     AfterState = null,
                     Reason = reason,
-                    Description = $"{description} 失败：{ex.Message} (耗时: {sw.ElapsedMilliseconds}ms)"
+                    Description = $"{description} 失败：{ex.Message} (耗时: {sw.ElapsedMilliseconds}ms)",
+                    ElapsedMilliseconds = sw.ElapsedMilliseconds
                 }, OperationLogStatus.Failed, ex.Message);
+
+                if (!string.IsNullOrWhiteSpace(taskId))
+                {
+                    _taskProfiler?.RecordStep(
+                        taskCode: taskId,
+                        subsystem: ProfilingSubsystem.Dispatcher,
+                        operationName: action,
+                        durationMs: sw.ElapsedMilliseconds,
+                        status: "Failed",
+                        summary: $"{description} 失败：{ex.Message}",
+                        agvId: agvId,
+                        details: ex.Message);
+                }
 
                 throw;
             }

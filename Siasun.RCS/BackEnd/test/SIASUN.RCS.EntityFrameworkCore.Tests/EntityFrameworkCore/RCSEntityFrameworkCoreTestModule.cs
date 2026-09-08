@@ -61,6 +61,14 @@ public class RCSEntityFrameworkCoreTestModule : AbpModule
     public override void OnApplicationShutdown(ApplicationShutdownContext context)
     {
         _sqliteConnection?.Dispose();
+        try
+        {
+            _sqliteConnection?.Dispose();
+        }
+        catch
+        {
+            // 防御测试容器关闭时底层 SQLite 内部连接句柄已被释放或为空的情况
+        }
     }
 
     private static SqliteConnection CreateDatabaseAndGetConnection()
