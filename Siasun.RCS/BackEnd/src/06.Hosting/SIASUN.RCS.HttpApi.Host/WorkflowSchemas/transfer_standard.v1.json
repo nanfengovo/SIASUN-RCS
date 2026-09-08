@@ -1,0 +1,110 @@
+{
+  "workflowId": "transfer_standard",
+  "version": 1,
+  "title": "半导体标准晶圆/载具搬运工作流",
+  "description": "适用于通用 STK、机台及工位间的标准化搬运流程（锁库位 -> Fetch -> 锁目标位 -> 释放起始位 -> Put -> 释放目标位 -> 闭环）",
+  "steps": [
+    {
+      "stepIndex": 0,
+      "stepName": "LockPickupLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": null,
+      "parameters": {
+        "action": "Lock",
+        "target": "FromStation"
+      }
+    },
+    {
+      "stepIndex": 1,
+      "stepName": "DispatchFetchLeg",
+      "stepType": "DispatchTmLeg",
+      "activeLeg": "Fetch",
+      "isIdempotent": false,
+      "timeoutSeconds": 180,
+      "maxRetries": 0,
+      "waitingEvent": "TM_FETCH_DONE",
+      "rollbackStepIndex": 0,
+      "parameters": {
+        "motion": "Fetch"
+      }
+    },
+    {
+      "stepIndex": 2,
+      "stepName": "LockDropLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": 0,
+      "parameters": {
+        "action": "Lock",
+        "target": "ToStation"
+      }
+    },
+    {
+      "stepIndex": 3,
+      "stepName": "UnlockPickupLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": 2,
+      "parameters": {
+        "action": "Unlock",
+        "target": "FromStation"
+      }
+    },
+    {
+      "stepIndex": 4,
+      "stepName": "DispatchPutLeg",
+      "stepType": "DispatchTmLeg",
+      "activeLeg": "Put",
+      "isIdempotent": false,
+      "timeoutSeconds": 180,
+      "maxRetries": 0,
+      "waitingEvent": "TM_PUT_DONE",
+      "rollbackStepIndex": 2,
+      "parameters": {
+        "motion": "Put"
+      }
+    },
+    {
+      "stepIndex": 5,
+      "stepName": "UnlockDropLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": 4,
+      "parameters": {
+        "action": "Unlock",
+        "target": "ToStation"
+      }
+    },
+    {
+      "stepIndex": 6,
+      "stepName": "NotifyOutboxCompleted",
+      "stepType": "OutboxNotify",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": null,
+      "parameters": {
+        "eventType": "TaskCompleted"
+      }
+    }
+  ]
+}

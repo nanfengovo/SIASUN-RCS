@@ -1,0 +1,140 @@
+{
+  "workflowId": "erack_docking",
+  "version": 1,
+  "title": "NXP ERACK 智能物料架风淋门禁对接工作流",
+  "description": "专用于半导体洁净室 ERACK 场景，包含 PLC 风淋门安全互锁信号握手、防撞门磁到位校验与取放货时序编排",
+  "steps": [
+    {
+      "stepIndex": 0,
+      "stepName": "LockPickupLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": null,
+      "parameters": {
+        "action": "Lock",
+        "target": "FromStation"
+      }
+    },
+    {
+      "stepIndex": 1,
+      "stepName": "OpenErackDoorAndInterlock",
+      "stepType": "HardwareGate",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 45,
+      "maxRetries": 2,
+      "waitingEvent": "PLC_DOOR_OPENED",
+      "rollbackStepIndex": 0,
+      "parameters": {
+        "hardwarePort": "ErackGate",
+        "command": "OpenAndVerify"
+      }
+    },
+    {
+      "stepIndex": 2,
+      "stepName": "DispatchFetchLeg",
+      "stepType": "DispatchTmLeg",
+      "activeLeg": "Fetch",
+      "isIdempotent": false,
+      "timeoutSeconds": 180,
+      "maxRetries": 0,
+      "waitingEvent": "TM_FETCH_DONE",
+      "rollbackStepIndex": 0,
+      "parameters": {
+        "motion": "Fetch"
+      }
+    },
+    {
+      "stepIndex": 3,
+      "stepName": "CloseErackDoor",
+      "stepType": "HardwareGate",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 45,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": null,
+      "parameters": {
+        "hardwarePort": "ErackGate",
+        "command": "CloseAndVerify"
+      }
+    },
+    {
+      "stepIndex": 4,
+      "stepName": "LockDropLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": 0,
+      "parameters": {
+        "action": "Lock",
+        "target": "ToStation"
+      }
+    },
+    {
+      "stepIndex": 5,
+      "stepName": "UnlockPickupLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": 4,
+      "parameters": {
+        "action": "Unlock",
+        "target": "FromStation"
+      }
+    },
+    {
+      "stepIndex": 6,
+      "stepName": "DispatchPutLeg",
+      "stepType": "DispatchTmLeg",
+      "activeLeg": "Put",
+      "isIdempotent": false,
+      "timeoutSeconds": 180,
+      "maxRetries": 0,
+      "waitingEvent": "TM_PUT_DONE",
+      "rollbackStepIndex": 4,
+      "parameters": {
+        "motion": "Put"
+      }
+    },
+    {
+      "stepIndex": 7,
+      "stepName": "UnlockDropLocation",
+      "stepType": "LocationLock",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": 6,
+      "parameters": {
+        "action": "Unlock",
+        "target": "ToStation"
+      }
+    },
+    {
+      "stepIndex": 8,
+      "stepName": "NotifyOutboxCompleted",
+      "stepType": "OutboxNotify",
+      "activeLeg": null,
+      "isIdempotent": true,
+      "timeoutSeconds": 30,
+      "maxRetries": 3,
+      "waitingEvent": null,
+      "rollbackStepIndex": null,
+      "parameters": {
+        "eventType": "TaskCompleted"
+      }
+    }
+  ]
+}

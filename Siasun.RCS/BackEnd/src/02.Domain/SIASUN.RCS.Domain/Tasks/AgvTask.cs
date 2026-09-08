@@ -81,6 +81,16 @@ namespace SIASUN.RCS.Tasks
         public int? OptionCodeSchemaVersion { get; private set; }
 
         /// <summary>
+        /// 绑定的声明式工作流定义编号（例如 "transfer_standard", "erack_docking"）
+        /// </summary>
+        public string? WorkflowDefinitionId { get; private set; }
+
+        /// <summary>
+        /// 绑定的声明式工作流版本号
+        /// </summary>
+        public int? WorkflowVersion { get; private set; }
+
+        /// <summary>
         /// 全链路贯穿 TraceId
         /// </summary>
         public string? TraceId { get; private set; }
@@ -483,6 +493,17 @@ namespace SIASUN.RCS.Tasks
             {
                 OptionCodeSchemaVersion = schemaVersion;
             }
+        }
+
+        /// <summary>
+        /// 绑定该任务执行所依赖的声明式工作流 Schema 编号与版本
+        /// </summary>
+        /// <param name="workflowDefinitionId">工作流代号（例如 "transfer_standard", "erack_docking"）</param>
+        /// <param name="version">指定版本号，若为空则默认为模板最新版本</param>
+        public void BindWorkflow(string workflowDefinitionId, int? version = null)
+        {
+            WorkflowDefinitionId = Check.NotNullOrWhiteSpace(workflowDefinitionId, nameof(workflowDefinitionId));
+            WorkflowVersion = version;
         }
     }
 }

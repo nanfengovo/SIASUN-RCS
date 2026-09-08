@@ -384,6 +384,10 @@ public class RCSHttpApiHostModule : AbpModule
         var entityEvaluator = context.ServiceProvider.GetRequiredService<SIASUN.RCS.Auditing.IEntityAuditRuleEvaluator>();
         await entityEvaluator.RefreshRulesAsync();
 
+        // 动态加载 OptionCode 现场位图 Schema 与声明式 TaskWorkflow 现场工作流定义
+        context.ServiceProvider.GetRequiredService<SIASUN.RCS.OptionCodes.IOptionCodeSchemaLoader>().LoadFromDirectory();
+        context.ServiceProvider.GetRequiredService<SIASUN.RCS.Tasks.Workflow.IWorkflowDefinitionLoader>().LoadFromDirectory();
+
         app.UseRouting();
         app.UseStaticFiles();
         app.MapAbpStaticAssets();
