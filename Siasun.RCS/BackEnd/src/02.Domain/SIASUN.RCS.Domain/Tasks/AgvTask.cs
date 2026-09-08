@@ -86,6 +86,11 @@ namespace SIASUN.RCS.Tasks
         public string? WorkflowDefinitionId { get; private set; }
 
         /// <summary>
+        /// 工作流定义标识代号（兼容契约别名）
+        /// </summary>
+        public string? WorkflowKey => WorkflowDefinitionId;
+
+        /// <summary>
         /// 绑定的声明式工作流版本号
         /// </summary>
         public int? WorkflowVersion { get; private set; }
@@ -510,6 +515,16 @@ namespace SIASUN.RCS.Tasks
         {
             WorkflowDefinitionId = Check.NotNullOrWhiteSpace(workflowDefinitionId, nameof(workflowDefinitionId));
             WorkflowVersion = version;
+        }
+
+        /// <summary>
+        /// 设置或绑定工作流定义标识键（兼容契约别名）
+        /// </summary>
+        /// <param name="workflowKey">工作流定义代号</param>
+        /// <param name="version">可选指定版本号</param>
+        public void SetWorkflowKey(string workflowKey, int? version = null)
+        {
+            BindWorkflow(workflowKey, version);
         }
     }
 }

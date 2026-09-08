@@ -63,6 +63,8 @@ namespace SIASUN.RCS.Swagger
                 { "LocationPlcConfig", "库位与机台设备 PLC 硬件安全联锁点表配置" },
                 { "TaskProfiling", "任务执行细粒度耗时剖析与流转时序看板" },
                 { "OptionCode", "32位 OptionCode 动态位图编解码与快照固化" }
+                { "OptionCode", "32位 OptionCode 动态位图编解码与快照固化" },
+                { "Batch", "AGV 批次管理与多车协同编排" }
             };
 
             // 获取当前文档中实际被接口使用的所有 Tag

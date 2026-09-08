@@ -21,6 +21,7 @@ using SIASUN.RCS.Tasks;
 using SIASUN.RCS.Vehicles;
 using SIASUN.RCS.Tasks.Profiling;
 using SIASUN.RCS.Outbox;
+using SIASUN.RCS.Batches;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
@@ -44,6 +45,7 @@ public class RCSDbContext :
     public DbSet<TaskStepProfiling> TaskStepProfilings { get; set; } = null!;
     public DbSet<TaskSerialMapping> TaskSerialMappings { get; set; } = null!;
     public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
+    public DbSet<AgvBatch> AgvBatches { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -203,6 +205,22 @@ public class RCSDbContext :
 
             b.HasIndex(x => new { x.Status, x.NextRetryTime });
             b.HasIndex(x => x.TraceId);
+            b.HasIndex(x => x.CreationTime);
+        });
+
+        builder.Entity<AgvBatch>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "Batches", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.BatchCode).IsRequired().HasMaxLength(64);
+            b.Property(x => x.SourceStation).IsRequired().HasMaxLength(64);
+            b.Property(x => x.TargetStation).IsRequired().HasMaxLength(64);
+            b.Property(x => x.CarrierCodes).HasMaxLength(1024);
+            b.Property(x => x.TraceId).HasMaxLength(64);
+            b.Property(x => x.Remark).HasMaxLength(512);
+
+            b.HasIndex(x => x.BatchCode).IsUnique();
+            b.HasIndex(x => x.Status);
             b.HasIndex(x => x.CreationTime);
         });
 

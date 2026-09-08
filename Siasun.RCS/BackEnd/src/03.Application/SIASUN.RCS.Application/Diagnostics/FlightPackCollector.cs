@@ -15,6 +15,7 @@ using SIASUN.RCS.Interfaces.OperationLogs;
 using SIASUN.RCS.Logs.OperatorLog;
 using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Monitor;
+using SIASUN.RCS.Tasks.Profiling;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Linq;
@@ -24,11 +25,13 @@ namespace SIASUN.RCS.Diagnostics
     /// <summary>
     /// 工业级事故排障黑匣子取证包收集与打包器
     /// 负责按任务或时间段整合 API 报文、操作日志、实体变更与系统事件（四轨时序），输出自包含的 .rcspack 离线排障包
+    /// 负责按任务或时间段整合 API 报文、操作日志、实体变更、系统事件与工作流步骤（五轨时序），输出自包含的 .rcspack 离线排障包
     /// </summary>
     public class FlightPackCollector : IFlightPackCollector, ITransientDependency
     {
         private readonly IRepository<OperationLog, Guid> _operationLogRepository;
         private readonly IRepository<SystemEventLog, Guid> _systemEventLogRepository;
+        private readonly IRepository<TaskStepProfiling, Guid>? _stepProfilingRepository;
         private readonly IApiAuditLogStore _apiAuditLogStore;
         private readonly IEntityAuditLogStore? _entityAuditLogStore;
         private readonly IIncidentNarrativeBuilder _narrativeBuilder;
@@ -45,6 +48,7 @@ namespace SIASUN.RCS.Diagnostics
 
         /// <summary>
         /// 构造函数注入四轨审计底层仓库与分析组件
+        /// 构造函数注入五轨审计底层仓库与分析组件
         /// </summary>
         public FlightPackCollector(
             IRepository<OperationLog, Guid> operationLogRepository,
@@ -55,10 +59,12 @@ namespace SIASUN.RCS.Diagnostics
             IAsyncQueryableExecuter asyncExecuter,
             IAiIncidentAnalysisProvider? aiAnalysisProvider = null,
             IEntityAuditLogStore? entityAuditLogStore = null,
-            Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
+            Microsoft.Extensions.Configuration.IConfiguration? configuration = null,
+            IRepository<TaskStepProfiling, Guid>? stepProfilingRepository = null)
         {
             _operationLogRepository = operationLogRepository;
             _systemEventLogRepository = systemEventLogRepository;
+            _stepProfilingRepository = stepProfilingRepository;
             _apiAuditLogStore = apiAuditLogStore;
             _narrativeBuilder = narrativeBuilder;
             _operationLogRecorder = operationLogRecorder;
@@ -122,6 +128,7 @@ namespace SIASUN.RCS.Diagnostics
             }
 
             // 2. 捞取底层四轨证据 (API Logs, Operator Logs, System Events, Entity Diffs)
+            // 2. 捞取底层五轨证据 (API Logs, Operator Logs, System Events, Entity Diffs, Workflow Profilings)
             var apiLogs = await _apiAuditLogStore.GetListAsync(queryStartTime, queryEndTime, ct: cancellationToken);
 
             var operatorQuery = opQuery
@@ -140,6 +147,17 @@ namespace SIASUN.RCS.Diagnostics
             var systemEvents = await _asyncExecuter.ToListAsync(systemEventQuery, cancellationToken);
 
             // 3. 统一投影打平到 Timeline (三轨)
+            var stepProfilings = new List<TaskStepProfiling>();
+            if (_stepProfilingRepository != null)
+            {
+                var profilingQueryable = await _stepProfilingRepository.GetQueryableAsync();
+                var profilingQuery = profilingQueryable
+                    .Where(x => (x.StartTime >= queryStartTime && x.StartTime <= queryEndTime)
+                                || (!string.IsNullOrEmpty(request.AnchorKey) && x.TaskCode == request.AnchorKey))
+                    .OrderBy(x => x.StartTime);
+                stepProfilings = await _asyncExecuter.ToListAsync(profilingQuery, cancellationToken);
+            }
+
             IReadOnlyList<EntityAuditLogEntry> entityLogs = Array.Empty<EntityAuditLogEntry>();
             if (_entityAuditLogStore != null)
             {
@@ -147,6 +165,7 @@ namespace SIASUN.RCS.Diagnostics
             }
 
             // 3. 统一投影打平到 Timeline (四轨)
+            // 3. 统一投影打平到 Timeline (五轨: API, Operator, Exception, Entity, Workflow)
             var timelineEvents = new List<FlightPackTimelineEvent>();
 
             // (1) API 轨
@@ -247,6 +266,31 @@ namespace SIASUN.RCS.Diagnostics
                     {
                         File = "raw/entity_diffs.json",
                         Id = ent.Id.ToString()
+                    }
+                });
+            }
+
+            // (5) Workflow 轨 (工作流细粒度步骤执行剖析)
+            foreach (var prof in stepProfilings)
+            {
+                var level = string.Equals(prof.Status, "Failed", StringComparison.OrdinalIgnoreCase) || string.Equals(prof.Status, "Timeout", StringComparison.OrdinalIgnoreCase)
+                    ? "Error"
+                    : "Information";
+
+                timelineEvents.Add(new FlightPackTimelineEvent
+                {
+                    Id = $"wf_{prof.Id}",
+                    Timestamp = prof.StartTime,
+                    Track = "Workflow",
+                    Level = level,
+                    Source = string.IsNullOrEmpty(prof.Subsystem) ? "Workflow" : prof.Subsystem,
+                    Title = $"步骤 [{prof.StepIndex}] {prof.Subsystem}:{prof.OperationName} ({prof.DurationMs}ms)",
+                    Summary = $"任务: {prof.TaskCode}, 程段: {prof.ActiveLeg ?? "N/A"}, 耗时: {prof.DurationMs}ms, 状态: {prof.Status}, 摘要: {prof.Summary}",
+                    TraceId = prof.TraceId,
+                    RawRef = new RawRefDto
+                    {
+                        File = "raw/workflow_profiling.json",
+                        Id = prof.Id.ToString()
                     }
                 });
             }
@@ -375,6 +419,9 @@ namespace SIASUN.RCS.Diagnostics
 
                 // raw/entity_diffs.json
                 AddZipEntry(archive, "raw/entity_diffs.json", JsonSerializer.Serialize(entityLogs, JsonOptions));
+
+                // raw/workflow_profiling.json
+                AddZipEntry(archive, "raw/workflow_profiling.json", JsonSerializer.Serialize(stepProfilings, JsonOptions));
 
                 // raw/ai_analysis.json (如果存在 AI 诊断结果)
                 if (aiResult != null)
