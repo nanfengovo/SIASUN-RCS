@@ -40,12 +40,14 @@ namespace SIASUN.RCS.OptionCodes
         }
 
         /// <inheritdoc />
+        [AllowAnonymous]
         public Task<IReadOnlyList<OptionCodeSchemaDefinition>> GetSchemasAsync()
         {
             return Task.FromResult(_schemaRegistry.GetAll());
         }
 
         /// <inheritdoc />
+        [AllowAnonymous]
         public Task<OptionCodeSchemaDefinition> GetSchemaAsync(string schemaCode, int? version = null)
         {
             Check.NotNullOrWhiteSpace(schemaCode, nameof(schemaCode));
@@ -86,6 +88,7 @@ namespace SIASUN.RCS.OptionCodes
         }
 
         /// <inheritdoc />
+        [AllowAnonymous]
         public Task<DecodedOptionCodeResult> DecodeAsync(DecodeOptionCodeInput input)
         {
             Check.NotNull(input, nameof(input));

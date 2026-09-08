@@ -7,7 +7,6 @@ using Volo.Abp;
 namespace SIASUN.RCS.OptionCodes
 {
     /// <summary>
-    /// OptionCode Schema 注册与检索中心默认实现
     /// OptionCode Schema 注册与检索中心默认实现（保持领域层纯净，无硬编码客户现场）
     /// </summary>
     public class OptionCodeSchemaRegistry : IOptionCodeSchemaRegistry
@@ -109,4 +108,3 @@ namespace SIASUN.RCS.OptionCodes
         }
     }
 }
-
