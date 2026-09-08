@@ -279,6 +279,16 @@ namespace SIASUN.RCS.Swagger
                 else if (path.EndsWith("decode") && method == "POST") { operation.Summary = "对 32 位 OptionCode 报文字符串进行逆向反解"; operation.Description = "分解为二进制位图、十进制数值，并结合现场 Schema 枚举映射表翻译为业务中文描述。"; }
                 else if (path.EndsWith("freeze-task-option-code") && method == "POST") { operation.Summary = "为在途任务编译并固化 OptionCode 快照"; operation.Description = "建单或派发时立即冻结快照至 AgvTask 聚合根，杜绝后续主数据修改导致在途运单参数漂移。"; }
             }
+
+            // --- 底层移动机器人 TM 状态回调与步进唤醒 ---
+            else if (path.StartsWith("api/app/tm-callback"))
+            {
+                if (path.EndsWith("callback") && method == "POST")
+                {
+                    operation.Summary = "接收底层 TM 报文状态回调（动作完成/失败/进度）";
+                    operation.Description = "【TM无缝映射】根据 TmSerial 精准反查内部任务，自动唤醒挂起的工作流步进并推进多程段流转，杜绝字符串切割 hack。";
+                }
+            }
         }
     }
 }
