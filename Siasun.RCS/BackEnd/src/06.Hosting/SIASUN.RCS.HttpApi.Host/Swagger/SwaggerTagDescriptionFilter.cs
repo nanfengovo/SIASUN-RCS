@@ -59,7 +59,9 @@ namespace SIASUN.RCS.Swagger
                 { "DispatchIntervention", "调度员人工干预控制（取消、强制完结、指派、复位）" },
                 { "LocationLock", "空间库位原子锁与人工运维管理" },
                 { "LocationMap", "业务库位与地图点位映射管理" },
-                { "LocationPlcConfig", "库位与机台设备 PLC 硬件安全联锁点表配置" }
+                { "LocationPlcConfig", "库位与机台设备 PLC 硬件安全联锁点表配置" },
+                { "TaskProfiling", "任务执行细粒度耗时剖析与流转时序看板" },
+                { "OptionCode", "32位 OptionCode 动态位图编解码与快照固化" }
             };
 
             // 获取当前文档中实际被接口使用的所有 Tag

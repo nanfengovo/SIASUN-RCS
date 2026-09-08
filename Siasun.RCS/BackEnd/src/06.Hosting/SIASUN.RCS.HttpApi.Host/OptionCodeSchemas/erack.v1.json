@@ -1,0 +1,113 @@
+{
+  "code": "erack",
+  "version": 1,
+  "title": "NXP ERACK 晶圆仓储治具位图",
+  "description": "适用于 NXP ERACK 晶圆盒出入库与机台对接的 32 位 TaskCode1/TaskCode2 位图协议",
+  "wire": {
+    "join": ",",
+    "lsbBit1": true
+  },
+  "parts": [
+    {
+      "key": "TaskCode1",
+      "label": "TaskCode1 (机台索引与料盒模板)",
+      "width": 32,
+      "fields": [
+        {
+          "key": "cameraTemplateIndex",
+          "label": "视觉模板索引",
+          "bitStart": 1,
+          "bitEnd": 8,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "手眼视觉定位模板代号"
+        },
+        {
+          "key": "agvLocationIndex",
+          "label": "车辆槽位索引",
+          "bitStart": 9,
+          "bitEnd": 16,
+          "required": false,
+          "source": "Const",
+          "constValue": 0,
+          "description": "车体存放工位编号"
+        },
+        {
+          "key": "boxType",
+          "label": "料盒类型",
+          "bitStart": 17,
+          "bitEnd": 20,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "4位料盒类型编码"
+        },
+        {
+          "key": "machineIndex",
+          "label": "机台索引",
+          "bitStart": 21,
+          "bitEnd": 32,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "12位机台索引代号"
+        }
+      ]
+    },
+    {
+      "key": "TaskCode2",
+      "label": "TaskCode2 (机台编号与设备动作)",
+      "width": 32,
+      "fields": [
+        {
+          "key": "deviceType",
+          "label": "设备类型",
+          "bitStart": 1,
+          "bitEnd": 8,
+          "required": true,
+          "source": "Master",
+          "enum": {
+            "1": "DBErack",
+            "2": "Stocker",
+            "3": "WB"
+          },
+          "description": "8位对接设备类型"
+        },
+        {
+          "key": "machineLocationIndex",
+          "label": "设备槽位索引",
+          "bitStart": 9,
+          "bitEnd": 16,
+          "required": true,
+          "source": "Port",
+          "description": "8位机台或库位物理槽位编号"
+        },
+        {
+          "key": "pGMark",
+          "label": "取放标志",
+          "bitStart": 17,
+          "bitEnd": 20,
+          "required": true,
+          "source": "Leg",
+          "enum": {
+            "1": "Fetch(取料)",
+            "2": "Put(放料)"
+          },
+          "description": "4位取放标识: 1=Fetch, 2=Put"
+        },
+        {
+          "key": "machineNumber",
+          "label": "物理机台号",
+          "bitStart": 21,
+          "bitEnd": 32,
+          "required": false,
+          "source": "Master",
+          "defaultValue": 0,
+          "description": "12位现场物理机台编号"
+        }
+      ]
+    }
+  ]
+}
+

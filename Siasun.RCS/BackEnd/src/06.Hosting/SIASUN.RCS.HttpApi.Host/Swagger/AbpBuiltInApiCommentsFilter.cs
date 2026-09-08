@@ -259,6 +259,24 @@ namespace SIASUN.RCS.Swagger
                 else if (method == "PUT") { operation.Summary = "修改库位关联的 PLC 硬件联锁配置"; }
                 else if (method == "DELETE") { operation.Summary = "删除库位关联的 PLC 硬件联锁配置"; }
             }
+
+            // --- 任务步骤剖析与时序画像 (Task Profiling) ---
+            else if (path.StartsWith("api/app/task-profiling"))
+            {
+                if (path.EndsWith("task-timeline-profiling") && method == "GET") { operation.Summary = "获取指定任务的时序流转画像与多系统耗时拆解"; operation.Description = "【大屏流转】支撑前端任务详情弹窗：TM 状态轴、上游批次出库轴、多系统交互流水与耗时拆解。"; }
+                else if (path.EndsWith("metrics-summary") && method == "GET") { operation.Summary = "获取宏观任务执行指标与 Dashboard 性能统计"; operation.Description = "【效能度量】支撑 Dashboard_数据统计(1).xlsx 核心 P0 指标（任务总耗时、臂动作耗时、车体运动耗时、上下极限值、稼动率及 MTBA）。"; }
+                else if (path.EndsWith("step-list") && method == "GET") { operation.Summary = "分页查询细粒度步骤剖析流水明细"; operation.Description = "支持按任务号、子系统、车辆编号及时间区间查询每一毫秒的步骤调用明细。"; }
+            }
+
+            // --- 32位 OptionCode 动态位图编解码与快照固化 ---
+            else if (path.StartsWith("api/app/option-code"))
+            {
+                if (path.EndsWith("schemas") && method == "GET") { operation.Summary = "获取系统所有已注册的 OptionCode Schema 列表"; operation.Description = "供前端可视化位图设计器、大屏下拉选择以及配置中心使用。"; }
+                else if (path.EndsWith("schema") && method == "GET") { operation.Summary = "获取指定代号与版本的 OptionCode Schema 详情"; operation.Description = "返回包含各 Part、位宽、起始位、掩码、数据源与枚举映射字典的完整位图结构。"; }
+                else if (path.EndsWith("compile") && method == "POST") { operation.Summary = "动态装配入参并编译为 32 位 OptionCode 指令"; operation.Description = "支持从 const、args、master、leg、port 提取多源数据并执行 LSB 32 位位掩码正向编译，并返回即时反解预览。"; }
+                else if (path.EndsWith("decode") && method == "POST") { operation.Summary = "对 32 位 OptionCode 报文字符串进行逆向反解"; operation.Description = "分解为二进制位图、十进制数值，并结合现场 Schema 枚举映射表翻译为业务中文描述。"; }
+                else if (path.EndsWith("freeze-task-option-code") && method == "POST") { operation.Summary = "为在途任务编译并固化 OptionCode 快照"; operation.Description = "建单或派发时立即冻结快照至 AgvTask 聚合根，杜绝后续主数据修改导致在途运单参数漂移。"; }
+            }
         }
     }
 }

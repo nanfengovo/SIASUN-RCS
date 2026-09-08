@@ -1,0 +1,117 @@
+{
+  "code": "txc_demo",
+  "version": 1,
+  "title": "台湾晶技 TXC 标准治具位图",
+  "description": "适用于台湾晶技双臂/单臂协作机器人的标准 32 位 CodeA/CodeB 治具控制协议",
+  "wire": {
+    "join": ",",
+    "lsbBit1": true
+  },
+  "parts": [
+    {
+      "key": "codeA",
+      "label": "TaskCodeA (车体与工装指令)",
+      "width": 32,
+      "fields": [
+        {
+          "key": "armSide",
+          "label": "机械臂运行侧",
+          "bitStart": 1,
+          "bitEnd": 8,
+          "required": false,
+          "source": "Master",
+          "defaultValue": 1,
+          "enum": {
+            "1": "左侧",
+            "2": "右侧"
+          },
+          "description": "机械臂朝向机台的动作侧方向"
+        },
+        {
+          "key": "agvSlot",
+          "label": "AGV车身槽位",
+          "bitStart": 9,
+          "bitEnd": 16,
+          "required": true,
+          "source": "Const",
+          "constValue": 0,
+          "description": "AGV车身放置槽位索引，固定为0"
+        },
+        {
+          "key": "boxType",
+          "label": "料盒类型",
+          "bitStart": 17,
+          "bitEnd": 24,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "晶圆/晶体料盒规格代号"
+        },
+        {
+          "key": "machineIndex",
+          "label": "机台索引",
+          "bitStart": 25,
+          "bitEnd": 32,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "车间机台作业索引编号"
+        }
+      ]
+    },
+    {
+      "key": "codeB",
+      "label": "TaskCodeB (设备与动作指令)",
+      "width": 32,
+      "fields": [
+        {
+          "key": "equipmentType",
+          "label": "设备类型",
+          "bitStart": 1,
+          "bitEnd": 8,
+          "required": true,
+          "source": "Master",
+          "enum": {
+            "1": "Rack货架",
+            "2": "H099机台",
+            "3": "H044机台"
+          },
+          "description": "现场目标设备硬件类型"
+        },
+        {
+          "key": "equipmentSlot",
+          "label": "设备库位编号",
+          "bitStart": 9,
+          "bitEnd": 16,
+          "required": true,
+          "source": "Port",
+          "description": "目标设备库位/槽位序号"
+        },
+        {
+          "key": "pickPlace",
+          "label": "取放标识",
+          "bitStart": 17,
+          "bitEnd": 24,
+          "required": true,
+          "source": "Leg",
+          "enum": {
+            "1": "车身到设备(P/Put)",
+            "2": "设备到车身(G/Fetch)"
+          },
+          "description": "取货或放货物理动作方向"
+        },
+        {
+          "key": "machineNo",
+          "label": "机台编号",
+          "bitStart": 25,
+          "bitEnd": 32,
+          "required": false,
+          "source": "Master",
+          "defaultValue": 0,
+          "description": "现场物理机台编号"
+        }
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,118 @@
+{
+  "code": "molding",
+  "version": 1,
+  "title": "NXP 天津 Molding 封测车间位图",
+  "description": "适用于 NXP 天津 Molding 车间弹匣搬运与立库交互的标准 32 位位图协议",
+  "wire": {
+    "join": ",",
+    "lsbBit1": true
+  },
+  "parts": [
+    {
+      "key": "TaskCode1",
+      "label": "TaskCode1 (数量/弹匣类型/TT/批次)",
+      "width": 32,
+      "fields": [
+        {
+          "key": "lotId",
+          "label": "批次低8位",
+          "bitStart": 1,
+          "bitEnd": 8,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "8位批次标识低字节"
+        },
+        {
+          "key": "ttStart",
+          "label": "TT起点编号",
+          "bitStart": 9,
+          "bitEnd": 16,
+          "required": false,
+          "source": "Args",
+          "defaultValue": 0,
+          "description": "8位转台/起始点序号"
+        },
+        {
+          "key": "carrierType",
+          "label": "弹匣料盒类型",
+          "bitStart": 17,
+          "bitEnd": 24,
+          "required": true,
+          "source": "Args",
+          "enum": {
+            "1": "小弹匣(L)",
+            "2": "中弹匣(B)",
+            "3": "大弹匣(H)"
+          },
+          "description": "8位弹匣规格代号"
+        },
+        {
+          "key": "count",
+          "label": "物料数量",
+          "bitStart": 25,
+          "bitEnd": 32,
+          "required": true,
+          "source": "Args",
+          "defaultValue": 1,
+          "description": "8位料盒/工件数量"
+        }
+      ]
+    },
+    {
+      "key": "TaskCode2",
+      "label": "TaskCode2 (数量/取放/机台/设备类型)",
+      "width": 32,
+      "fields": [
+        {
+          "key": "machineType",
+          "label": "设备类型",
+          "bitStart": 1,
+          "bitEnd": 8,
+          "required": true,
+          "source": "Master",
+          "enum": {
+            "1": "TT01",
+            "2": "TT02",
+            "3": "SP170",
+            "4": "Y series"
+          },
+          "description": "8位机台类型代码"
+        },
+        {
+          "key": "machineLocationId",
+          "label": "机台点位编号",
+          "bitStart": 9,
+          "bitEnd": 16,
+          "required": true,
+          "source": "Port",
+          "description": "8位机台或库位点位序号"
+        },
+        {
+          "key": "putOrFetchFlag",
+          "label": "取放标志",
+          "bitStart": 17,
+          "bitEnd": 24,
+          "required": true,
+          "source": "Leg",
+          "enum": {
+            "1": "Put(放料)",
+            "2": "Fetch(取料)"
+          },
+          "description": "8位取放标识: 1=Put, 2=Fetch"
+        },
+        {
+          "key": "count",
+          "label": "物料数量",
+          "bitStart": 25,
+          "bitEnd": 32,
+          "required": true,
+          "source": "Args",
+          "defaultValue": 1,
+          "description": "8位料盒/工件数量"
+        }
+      ]
+    }
+  ]
+}
+

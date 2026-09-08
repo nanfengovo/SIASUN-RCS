@@ -276,7 +276,9 @@ public class RCSHttpApiHostModule : AbpModule
                                   || path.StartsWith("api/app/location-lock", StringComparison.OrdinalIgnoreCase)
                                   || path.StartsWith("api/app/location-map", StringComparison.OrdinalIgnoreCase)
                                   || path.StartsWith("api/app/location-plc-config", StringComparison.OrdinalIgnoreCase)
-                                  || path.StartsWith("api/app/dispatch-intervention", StringComparison.OrdinalIgnoreCase);
+                                  || path.StartsWith("api/app/dispatch-intervention", StringComparison.OrdinalIgnoreCase)
+                                  || path.StartsWith("api/app/task-profiling", StringComparison.OrdinalIgnoreCase)
+                                  || path.StartsWith("api/app/option-code", StringComparison.OrdinalIgnoreCase);
                     var isAdapters = path.StartsWith("api/adapters/", StringComparison.OrdinalIgnoreCase);
                     var isMonitor = path.StartsWith("api/monitor/", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/system-monitor", StringComparison.OrdinalIgnoreCase)
@@ -286,7 +288,9 @@ public class RCSHttpApiHostModule : AbpModule
                                  || path.StartsWith("api/app/audit-log-filter-rule", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/frontend-audit", StringComparison.OrdinalIgnoreCase)
                                  || path.StartsWith("api/app/flight-pack", StringComparison.OrdinalIgnoreCase)
-                                 || path.StartsWith("api/app/operation-log", StringComparison.OrdinalIgnoreCase);
+                                 || path.StartsWith("api/app/operation-log", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/task-profiling", StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith("api/app/option-code", StringComparison.OrdinalIgnoreCase);
 
                     return docName switch
                     {
