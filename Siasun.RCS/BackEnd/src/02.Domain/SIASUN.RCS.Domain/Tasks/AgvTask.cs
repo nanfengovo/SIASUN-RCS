@@ -1,4 +1,5 @@
 using System;
+using SIASUN.RCS.Tasks.Events;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
@@ -100,6 +101,21 @@ namespace SIASUN.RCS.Tasks
         public DateTime? EndTime { get; private set; }
 
         /// <summary>
+        /// 当前步骤重试次数（仅在可幂等步进中由 Polly 自动重试推进）
+        /// </summary>
+        public int RetryCount { get; private set; }
+
+        /// <summary>
+        /// 最大允许重试次数（默认为 3 次）
+        /// </summary>
+        public int MaxRetryCount { get; private set; } = 3;
+
+        /// <summary>
+        /// 最近一次重试发生时间（UTC）
+        /// </summary>
+        public DateTime? LastRetryTime { get; private set; }
+
+        /// <summary>
         /// EF Core 内部反序列化受保护无参构造函数
         /// </summary>
         protected AgvTask()
@@ -190,6 +206,148 @@ namespace SIASUN.RCS.Tasks
             StepIndex = stepIndex;
             ActiveLeg = activeLeg ?? ActiveLeg;
             WaitingEvent = waitingEvent;
+            RetryCount = 0; // 成功推进到下一步时重置当前步重试计数
+        }
+
+        /// <summary>
+        /// 挂起当前任务步进，进入等待外部事件信号状态（如等待 TM 动作完成、PLC 门开启）
+        /// </summary>
+        /// <param name="waitingEvent">等待事件标识</param>
+        public void Suspend(string waitingEvent)
+        {
+            if (Status != AgvTaskStatus.Running)
+            {
+                throw new BusinessException("RCS:TaskNotInRunningState")
+                    .WithData("TaskCode", TaskCode)
+                    .WithData("CurrentStatus", Status.ToString());
+            }
+
+            WaitingEvent = Check.NotNullOrWhiteSpace(waitingEvent, nameof(waitingEvent));
+            AddLocalEvent(new TaskStepSuspendedEvent(Id, TaskCode, StepIndex, ActiveLeg, WaitingEvent, TraceId));
+        }
+
+        /// <summary>
+        /// 收到外部异步信号，唤醒挂起中的任务步进
+        /// </summary>
+        /// <param name="receivedEvent">收到的外部事件标识</param>
+        public void ResumeByEvent(string receivedEvent)
+        {
+            if (Status != AgvTaskStatus.Running)
+            {
+                throw new BusinessException("RCS:TaskNotInRunningState")
+                    .WithData("TaskCode", TaskCode)
+                    .WithData("CurrentStatus", Status.ToString());
+            }
+
+            if (!string.Equals(WaitingEvent, receivedEvent, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new BusinessException("RCS:WaitingEventMismatch")
+                    .WithData("TaskCode", TaskCode)
+                    .WithData("ExpectedEvent", WaitingEvent ?? string.Empty)
+                    .WithData("ReceivedEvent", receivedEvent);
+            }
+
+            WaitingEvent = null;
+            AddLocalEvent(new TaskStepResumedEvent(Id, TaskCode, StepIndex, receivedEvent, TraceId));
+        }
+
+        /// <summary>
+        /// 记录当前步骤的瞬态重试（仅允许在可幂等步进中重试，且不能突破最大重试上限）
+        /// </summary>
+        /// <param name="stepName">步骤名称</param>
+        /// <param name="errorMessage">瞬态异常消息</param>
+        /// <param name="isIdempotent">该步骤是否为安全可幂等操作</param>
+        public void RecordRetry(string stepName, string errorMessage, bool isIdempotent)
+        {
+            if (Status != AgvTaskStatus.Running)
+            {
+                throw new BusinessException("RCS:TaskNotInRunningState")
+                    .WithData("TaskCode", TaskCode)
+                    .WithData("CurrentStatus", Status.ToString());
+            }
+
+            if (!isIdempotent)
+            {
+                // 非幂等动作（如举升取货）严禁盲重试，必须直接转入 Failed 等待人工干预或 SAGA 补偿
+                Fail($"非幂等步骤 [{stepName}] 发生异常，禁止自动重试: {errorMessage}");
+                return;
+            }
+
+            RetryCount++;
+            LastRetryTime = DateTime.UtcNow;
+
+            AddLocalEvent(new TaskStepRetriedEvent(
+                Id,
+                TaskCode,
+                StepIndex,
+                stepName,
+                RetryCount,
+                MaxRetryCount,
+                isIdempotent,
+                errorMessage,
+                TraceId,
+                LastRetryTime.Value));
+
+            if (RetryCount > MaxRetryCount)
+            {
+                Fail($"可幂等步骤 [{stepName}] 重试达到上限 ({MaxRetryCount} 次)，最终失败: {errorMessage}");
+            }
+        }
+
+        /// <summary>
+        /// 从 Failed 状态显式恢复至 Running（显式领域方法，严禁外部直接篡改状态属性）
+        /// </summary>
+        /// <param name="reason">调度员人工重试原因</param>
+        public void ResumeFromFailure(string reason)
+        {
+            if (Status != AgvTaskStatus.Failed)
+            {
+                throw new BusinessException("RCS:TaskNotFailed")
+                    .WithData("TaskCode", TaskCode)
+                    .WithData("CurrentStatus", Status.ToString());
+            }
+
+            Status = AgvTaskStatus.Running;
+            FailureReason = null;
+            EndTime = null;
+            RetryCount = 0;
+
+            AddLocalEvent(new TaskLifecycleResumedEvent(Id, TaskCode, Check.NotNullOrWhiteSpace(reason, nameof(reason)), StepIndex, TraceId));
+        }
+
+        /// <summary>
+        /// 执行 SAGA 补偿回退（步退至历史安全步骤，例如取货失败回退至对位点）
+        /// </summary>
+        /// <param name="targetStepIndex">回退的目标步骤序号</param>
+        /// <param name="reason">补偿回退原因</param>
+        public void RollbackToStep(int targetStepIndex, string reason)
+        {
+            if (targetStepIndex < 1 || targetStepIndex > StepIndex)
+            {
+                throw new BusinessException("RCS:InvalidRollbackStepIndex")
+                    .WithData("TaskCode", TaskCode)
+                    .WithData("CurrentStepIndex", StepIndex)
+                    .WithData("TargetStepIndex", targetStepIndex);
+            }
+
+            var fromStep = StepIndex;
+            StepIndex = targetStepIndex;
+            Status = AgvTaskStatus.Running;
+            WaitingEvent = null;
+            FailureReason = null;
+            EndTime = null;
+            RetryCount = 0;
+
+            AddLocalEvent(new TaskStepCompensatedEvent(Id, TaskCode, fromStep, targetStepIndex, Check.NotNullOrWhiteSpace(reason, nameof(reason)), TraceId));
+        }
+
+        /// <summary>
+        /// 配置任务允许的最大重试次数
+        /// </summary>
+        /// <param name="maxRetryCount">最大重试次数</param>
+        public void ConfigureMaxRetryCount(int maxRetryCount)
+        {
+            MaxRetryCount = Math.Max(0, maxRetryCount);
         }
 
         /// <summary>
@@ -227,6 +385,7 @@ namespace SIASUN.RCS.Tasks
             Status = AgvTaskStatus.Succeeded;
             EndTime = endTime ?? DateTime.UtcNow;
             WaitingEvent = null;
+            RetryCount = 0;
 
             AddLocalEvent(new TaskLifecycleEndedEvent(
                 Id,
