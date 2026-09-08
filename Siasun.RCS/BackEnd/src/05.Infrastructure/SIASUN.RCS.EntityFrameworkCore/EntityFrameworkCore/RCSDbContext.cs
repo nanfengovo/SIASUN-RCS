@@ -20,6 +20,7 @@ using SIASUN.RCS.Logs.OperatorLogs;
 using SIASUN.RCS.Tasks;
 using SIASUN.RCS.Vehicles;
 using SIASUN.RCS.Tasks.Profiling;
+using SIASUN.RCS.Outbox;
 
 namespace SIASUN.RCS.EntityFrameworkCore;
 
@@ -42,6 +43,7 @@ public class RCSDbContext :
     public DbSet<LocationMap> LocationMaps { get; set; } = null!;
     public DbSet<TaskStepProfiling> TaskStepProfilings { get; set; } = null!;
     public DbSet<TaskSerialMapping> TaskSerialMappings { get; set; } = null!;
+    public DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -185,6 +187,22 @@ public class RCSDbContext :
 
             b.HasIndex(x => x.TmSerial).IsUnique();
             b.HasIndex(x => x.TaskId);
+            b.HasIndex(x => x.CreationTime);
+        });
+
+        builder.Entity<OutboxMessage>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "OutboxMessages", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.EventType).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Payload).IsRequired();
+            b.Property(x => x.Status).IsRequired();
+            b.Property(x => x.Destination).HasMaxLength(64);
+            b.Property(x => x.TraceId).HasMaxLength(64);
+            b.Property(x => x.LastError).HasMaxLength(2048);
+
+            b.HasIndex(x => new { x.Status, x.NextRetryTime });
+            b.HasIndex(x => x.TraceId);
             b.HasIndex(x => x.CreationTime);
         });
 

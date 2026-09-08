@@ -69,6 +69,9 @@ namespace SIASUN.RCS.Infrastructure.BackgroundJobs
                     description: "定期巡检超期库位锁并触发告警与自愈",
                     cronExpression: lockCheckCron!);
             });
+
+            // 注册基于 Polly 弹性重试机制的 Outbox 可靠消息发布后台服务
+            context.Services.AddHostedService<Outbox.OutboxPublisherWorker>();
         }
     }
 
