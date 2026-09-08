@@ -41,6 +41,7 @@ public class RCSDbContext :
     public DbSet<LocationPlcConfig> LocationPlcConfigs { get; set; } = null!;
     public DbSet<LocationMap> LocationMaps { get; set; } = null!;
     public DbSet<TaskStepProfiling> TaskStepProfilings { get; set; } = null!;
+    public DbSet<TaskSerialMapping> TaskSerialMappings { get; set; } = null!;
 
     #region Entities from the modules
 
@@ -160,6 +161,8 @@ public class RCSDbContext :
             b.Property(x => x.OptionCode).HasMaxLength(256);
             b.Property(x => x.OptionCodeSchemaCode).HasMaxLength(64);
             b.Property(x => x.OptionCodeSchemaVersion);
+            b.Property(x => x.WorkflowDefinitionId).HasMaxLength(64);
+            b.Property(x => x.WorkflowVersion);
             b.Property(x => x.TraceId).HasMaxLength(64);
             b.Property(x => x.FailureReason).HasMaxLength(1024);
 
@@ -167,6 +170,21 @@ public class RCSDbContext :
             b.HasIndex(x => x.Status);
             b.HasIndex(x => x.AssignedVehicleId);
             b.HasIndex(x => x.TraceId);
+            b.HasIndex(x => x.CreationTime);
+        });
+
+        builder.Entity<TaskSerialMapping>(b =>
+        {
+            b.ToTable(RCSConsts.DbTablePrefix + "TaskSerialMappings", RCSConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.TaskCode).IsRequired().HasMaxLength(64);
+            b.Property(x => x.TmSerial).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Leg).IsRequired().HasMaxLength(64);
+            b.Property(x => x.WaitingEvent).HasMaxLength(128);
+            b.Property(x => x.VehicleCode).HasMaxLength(64);
+
+            b.HasIndex(x => x.TmSerial).IsUnique();
+            b.HasIndex(x => x.TaskId);
             b.HasIndex(x => x.CreationTime);
         });
 
