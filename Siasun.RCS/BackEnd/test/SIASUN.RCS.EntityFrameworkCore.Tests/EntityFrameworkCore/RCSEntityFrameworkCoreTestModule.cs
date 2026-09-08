@@ -60,7 +60,6 @@ public class RCSEntityFrameworkCoreTestModule : AbpModule
 
     public override void OnApplicationShutdown(ApplicationShutdownContext context)
     {
-        _sqliteConnection?.Dispose();
         try
         {
             _sqliteConnection?.Dispose();

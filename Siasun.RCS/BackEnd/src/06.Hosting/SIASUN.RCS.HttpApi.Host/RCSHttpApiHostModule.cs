@@ -38,6 +38,7 @@ using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Security.Claims;
 using SIASUN.RCS.Infrastructure.Logging;
 using SIASUN.RCS.Infrastructure.BackgroundJobs;
+using SIASUN.RCS.Adapters.Hardware;
 
 namespace SIASUN.RCS;
 
@@ -56,7 +57,8 @@ namespace SIASUN.RCS;
     typeof(AbpSwashbuckleModule),
     typeof(AbpAspNetCoreSerilogModule),
     typeof(RCSInfrastructureLoggingModule),
-    typeof(RCSBackgroundJobsModule)
+    typeof(RCSBackgroundJobsModule),
+    typeof(RCSAdaptersHardwareModule)
     )]
 [ExcludeFromCodeCoverage]
 public class RCSHttpApiHostModule : AbpModule

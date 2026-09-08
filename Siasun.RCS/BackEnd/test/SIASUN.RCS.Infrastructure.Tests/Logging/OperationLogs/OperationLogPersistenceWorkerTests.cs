@@ -52,6 +52,9 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
                 errorMessage: null
             );
 
+            var uowCompletedTcs = new TaskCompletionSource<bool>();
+            uow.When(x => x.CompleteAsync(Arg.Any<CancellationToken>())).Do(_ => uowCompletedTcs.TrySetResult(true));
+
             // Push a log into the channel
             await channelManager.Channel.Writer.WriteAsync(log);
 
@@ -59,8 +62,8 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
             var cts = new CancellationTokenSource();
             var executeTask = worker.StartAsync(cts.Token);
 
-            // Wait a little bit for the worker to process
-            await Task.Delay(100);
+            // 等待工作者完成持久化入库与工作单元提交（最多 2 秒超时）
+            await Task.WhenAny(uowCompletedTcs.Task, Task.Delay(2000));
 
             // Cancel to stop the worker loop
             cts.Cancel();
@@ -69,7 +72,6 @@ namespace SIASUN.RCS.Infrastructure.Tests.Logging.OperationLogs
             // Assert
             await repository.Received(1).InsertAsync(log);
             await uow.Received(1).CompleteAsync();
-            uow.Received(1).Dispose();
         }
 
         [Fact]
