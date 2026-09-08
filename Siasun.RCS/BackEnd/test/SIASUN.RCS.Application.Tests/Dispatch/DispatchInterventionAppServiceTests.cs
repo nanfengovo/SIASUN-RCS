@@ -327,5 +327,87 @@ namespace SIASUN.RCS.Application.Tests.Dispatch
                 ctx.Reason == input.Reason
             ), OperationLogStatus.Success, null);
         }
+
+        [Fact]
+        public async Task ResumeTaskAsync_Should_Resume_Failed_Task_And_Record_Audit()
+        {
+            // Arrange
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-RESUME-01", "ST-01", "ST-02");
+            task.Start(Guid.NewGuid(), "AGV-01");
+            task.Fail("传感器超时告警");
+
+            _taskRepo.FindAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(task));
+
+            var input = new ResumeTaskInput
+            {
+                TaskId = "TASK-RESUME-01",
+                Reason = "现场传感器已人工复位，断点恢复步进",
+                RetryCurrentStep = true
+            };
+
+            // Act
+            var result = await _appService.ResumeTaskAsync(input);
+
+            // Assert
+            result.Success.ShouldBeTrue();
+            result.BeforeState.ShouldBe("Failed[Step=1]");
+            result.CurrentState.ShouldBe("Running[Step=1]");
+            task.Status.ShouldBe(AgvTaskStatus.Running);
+            task.FailureReason.ShouldBeNull();
+
+            await _taskRepo.Received(1).UpdateAsync(task, autoSave: true);
+
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.Module == "Dispatch" &&
+                ctx.Action == "ResumeTask" &&
+                ctx.TargetId == "TASK-RESUME-01" &&
+                ctx.BeforeState == "Failed[Step=1]" &&
+                ctx.AfterState == "Running[Step=1]" &&
+                ctx.Reason == input.Reason
+            ), OperationLogStatus.Success, null);
+        }
+
+        [Fact]
+        public async Task RollbackAndRetryAsync_Should_Rollback_To_Target_Step_And_Record_Audit()
+        {
+            // Arrange
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-ROLLBACK-01", "ST-01", "ST-02");
+            task.Start(Guid.NewGuid(), "AGV-01");
+            task.AdvanceStep(4, "Put");
+
+            _taskRepo.FindAsync(Arg.Any<Expression<Func<AgvTask, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<AgvTask?>(task));
+
+            var input = new RollbackAndRetryInput
+            {
+                TaskId = "TASK-ROLLBACK-01",
+                TargetStepIndex = 1,
+                Reason = "放置工位姿态校验偏差，安全回滚至对位步骤重新执行"
+            };
+
+            // Act
+            var result = await _appService.RollbackAndRetryAsync(input);
+
+            // Assert
+            result.Success.ShouldBeTrue();
+            result.BeforeState.ShouldBe("Running[Step=4]");
+            result.CurrentState.ShouldBe("Running[Step=1]");
+            task.Status.ShouldBe(AgvTaskStatus.Running);
+            task.StepIndex.ShouldBe(1);
+
+            await _taskRepo.Received(1).UpdateAsync(task, autoSave: true);
+
+            _opRecorder.Received(1).Record(Arg.Is<OperationLogContext>(ctx =>
+                ctx.Module == "Dispatch" &&
+                ctx.Action == "RollbackAndRetry" &&
+                ctx.TargetId == "TASK-ROLLBACK-01" &&
+                ctx.BeforeState == "Running[Step=4]" &&
+                ctx.AfterState == "Running[Step=1]" &&
+                ctx.Reason == input.Reason
+            ), OperationLogStatus.Success, null);
+        }
     }
 }

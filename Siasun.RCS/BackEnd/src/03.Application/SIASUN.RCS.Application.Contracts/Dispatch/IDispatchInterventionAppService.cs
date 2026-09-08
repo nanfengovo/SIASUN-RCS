@@ -37,6 +37,20 @@ namespace SIASUN.RCS.Dispatch
         /// <param name="input">复位车辆参数（含车辆编号与原因）</param>
         /// <returns>干预操作结果</returns>
         Task<DispatchInterventionResultDto> ResetVehicleAsync(ResetVehicleInput input);
+
+        /// <summary>
+        /// 调度员人工干预恢复失败的任务（断点重试/显式状态复原）
+        /// </summary>
+        /// <param name="input">恢复任务参数（含任务号、是否重试当前步与原因）</param>
+        /// <returns>干预操作结果</returns>
+        Task<DispatchInterventionResultDto> ResumeTaskAsync(ResumeTaskInput input);
+
+        /// <summary>
+        /// 调度员人工干预回滚并重试指定的任务（SAGA 补偿与安全回退）
+        /// </summary>
+        /// <param name="input">回滚重试参数（含任务号、目标步骤索引与原因）</param>
+        /// <returns>干预操作结果</returns>
+        Task<DispatchInterventionResultDto> RollbackAndRetryAsync(RollbackAndRetryInput input);
     }
 }
 

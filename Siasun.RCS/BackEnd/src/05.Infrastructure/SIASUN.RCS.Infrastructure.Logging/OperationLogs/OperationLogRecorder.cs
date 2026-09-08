@@ -99,27 +99,6 @@ namespace SIASUN.RCS.Infrastructure.Logging.OperationLogs
 
             if (!_channelManager.Channel.Writer.TryWrite(log))
             {
-                // 铁证特权通道在突发排队时等待至多 2 秒，确保调度员操作与自愈记录不可抵赖
-                var written = false;
-                try
-                {
-                    var writeTask = _channelManager.Channel.Writer.WriteAsync(log).AsTask();
-                    written = writeTask.Wait(TimeSpan.FromSeconds(2));
-                    if (!written)
-                    {
-                        Console.Error.WriteLine($"[EMERGENCY-AUDIT-LOSS-PREVENTION] OperationLog channel full, timed out writing: {log.Action} ({log.TargetType}:{log.TargetId})");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"[EMERGENCY-AUDIT-LOSS-PREVENTION] OperationLog write failed: {ex.Message}");
-                }
-
-                // 若 2 秒等待超时或写入出现异常，坚决推入紧急溢出保全环并应急落盘，达成 L4 工业级零丢失
-                if (!written)
-                {
-                    _channelManager.SpillBuffer.Enqueue(log);
-                }
                 // 通道已满时立即入队特权内存溢出环（SpillBuffer）保全并异步应急落盘，0 毫秒同步等待，彻底杜绝调用方线程阻塞
                 _channelManager.SpillBuffer.Enqueue(log);
             }

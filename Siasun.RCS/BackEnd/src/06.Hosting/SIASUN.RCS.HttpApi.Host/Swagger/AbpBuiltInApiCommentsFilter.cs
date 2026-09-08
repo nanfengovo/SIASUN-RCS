@@ -193,6 +193,8 @@ namespace SIASUN.RCS.Swagger
                 else if (path.EndsWith("force-end-task") && method == "POST") { operation.Summary = "调度员人工干预：强制结单任务"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，标记任务成功强制结单并释放库位锁。"; }
                 else if (path.EndsWith("assign-vehicle") && method == "POST") { operation.Summary = "调度员人工干预：强制指派执行车辆"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，解绑原车并重新人工强制指派目标 AGV。"; }
                 else if (path.EndsWith("reset-vehicle") && method == "POST") { operation.Summary = "调度员人工干预：复位车辆异常状态与清除警报"; operation.Description = "【调度干预】记录操作人、原因、BeforeState/AfterState，复位目标车辆报警并解除工控锁。"; }
+                else if (path.EndsWith("resume-task") && method == "POST") { operation.Summary = "调度员人工干预：恢复失败任务"; operation.Description = "【调度干预】显式将 Failed 状态重置为 Running 并断点恢复步进推进，记录操作人、原因、前后状态审计。"; }
+                else if (path.EndsWith("rollback-and-retry") && method == "POST") { operation.Summary = "调度员人工干预：回滚步骤并重试"; operation.Description = "【SAGA补偿】将任务步进安全回滚到指定历史步骤，触发补偿事件并重新调度执行。"; }
             }
 
             // --- 前端审计留痕 (Frontend Audit) ---

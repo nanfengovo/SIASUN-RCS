@@ -75,5 +75,29 @@ namespace SIASUN.RCS.Dispatch
             Check.NotNull(input, nameof(input));
             return await _mediator.Send(new ResetVehicleCommand(input.AgvId, input.Reason));
         }
+
+        /// <summary>
+        /// 调度员人工干预恢复失败的任务（断点重试/显式状态复原）
+        /// </summary>
+        /// <param name="input">恢复任务参数</param>
+        /// <returns>干预操作结果</returns>
+        [Authorize(RCSPermissions.DispatchIntervention.Resume)]
+        public async Task<DispatchInterventionResultDto> ResumeTaskAsync(ResumeTaskInput input)
+        {
+            Check.NotNull(input, nameof(input));
+            return await _mediator.Send(new ResumeTaskCommand(input.TaskId, input.Reason, input.RetryCurrentStep, input.AgvId));
+        }
+
+        /// <summary>
+        /// 调度员人工干预回滚并重试指定的任务（SAGA 补偿与安全回退）
+        /// </summary>
+        /// <param name="input">回滚重试参数</param>
+        /// <returns>干预操作结果</returns>
+        [Authorize(RCSPermissions.DispatchIntervention.Rollback)]
+        public async Task<DispatchInterventionResultDto> RollbackAndRetryAsync(RollbackAndRetryInput input)
+        {
+            Check.NotNull(input, nameof(input));
+            return await _mediator.Send(new RollbackAndRetryCommand(input.TaskId, input.TargetStepIndex, input.Reason, input.AgvId));
+        }
     }
 }

@@ -172,6 +172,16 @@ public static class RCSPermissions
         /// 调度员人工复位异常车辆权限
         /// </summary>
         public const string Reset = Default + ".Reset";
+
+        /// <summary>
+        /// 调度员人工恢复异常失败任务权限
+        /// </summary>
+        public const string Resume = Default + ".Resume";
+
+        /// <summary>
+        /// 调度员人工回滚并重试任务权限
+        /// </summary>
+        public const string Rollback = Default + ".Rollback";
     }
 
     /// <summary>

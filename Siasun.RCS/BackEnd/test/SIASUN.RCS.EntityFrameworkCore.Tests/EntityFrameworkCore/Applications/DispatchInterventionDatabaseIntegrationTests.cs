@@ -139,5 +139,67 @@ namespace SIASUN.RCS.EntityFrameworkCore.Applications
             dbVehicle.CurrentTaskId.ShouldBe(taskId);
             dbVehicle.CurrentTaskCode.ShouldBe("TASK-ASSIGN-001");
         }
+
+        [Fact]
+        public async Task ResumeTaskAsync_Should_Persist_Running_State_In_Database()
+        {
+            // Arrange
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-DB-RESUME", "ST-01", "ST-02");
+            var vehicleId = Guid.NewGuid();
+            var vehicle = new AgvVehicle(vehicleId, "AGV-05");
+
+            await _taskRepository.InsertAsync(task, autoSave: true);
+            await _vehicleRepository.InsertAsync(vehicle, autoSave: true);
+
+            task.Start(vehicleId, "AGV-05");
+            task.Fail("门磁检测超时");
+            await _taskRepository.UpdateAsync(task, autoSave: true);
+
+            // Act: 调度员人工干预恢复任务
+            var result = await _appService.ResumeTaskAsync(new ResumeTaskInput
+            {
+                TaskId = "TASK-DB-RESUME",
+                Reason = "门磁故障已现场排查，恢复任务执行",
+                RetryCurrentStep = true
+            });
+
+            // Assert
+            result.Success.ShouldBeTrue();
+            var dbTask = await _dbContext.AgvTasks.AsNoTracking().FirstAsync(x => x.Id == taskId);
+            dbTask.Status.ShouldBe(AgvTaskStatus.Running);
+            dbTask.FailureReason.ShouldBeNull();
+        }
+
+        [Fact]
+        public async Task RollbackAndRetryAsync_Should_Persist_Step_And_Status_In_Database()
+        {
+            // Arrange
+            var taskId = Guid.NewGuid();
+            var task = new AgvTask(taskId, "TASK-DB-ROLLBACK", "ST-01", "ST-02");
+            var vehicleId = Guid.NewGuid();
+            var vehicle = new AgvVehicle(vehicleId, "AGV-06");
+
+            await _taskRepository.InsertAsync(task, autoSave: true);
+            await _vehicleRepository.InsertAsync(vehicle, autoSave: true);
+
+            task.Start(vehicleId, "AGV-06");
+            task.AdvanceStep(5, "Put");
+            await _taskRepository.UpdateAsync(task, autoSave: true);
+
+            // Act: 调度员人工回滚至第 2 步
+            var result = await _appService.RollbackAndRetryAsync(new RollbackAndRetryInput
+            {
+                TaskId = "TASK-DB-ROLLBACK",
+                TargetStepIndex = 2,
+                Reason = "目标位传感器存在杂物遮挡，清理后回滚至二次对位重试"
+            });
+
+            // Assert
+            result.Success.ShouldBeTrue();
+            var dbTask = await _dbContext.AgvTasks.AsNoTracking().FirstAsync(x => x.Id == taskId);
+            dbTask.Status.ShouldBe(AgvTaskStatus.Running);
+            dbTask.StepIndex.ShouldBe(2);
+        }
     }
 }

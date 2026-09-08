@@ -308,7 +308,8 @@ namespace SIASUN.RCS.Tasks
         /// 从 Failed 状态显式恢复至 Running（显式领域方法，严禁外部直接篡改状态属性）
         /// </summary>
         /// <param name="reason">调度员人工重试原因</param>
-        public void ResumeFromFailure(string reason)
+        /// <param name="retryCurrentStep">是否重试当前失败步骤（true: 保持当前 StepIndex；false: 跳过当前步骤推进至下一步）</param>
+        public void ResumeFromFailure(string reason, bool retryCurrentStep = true)
         {
             if (Status != AgvTaskStatus.Failed)
             {
@@ -322,17 +323,22 @@ namespace SIASUN.RCS.Tasks
             EndTime = null;
             RetryCount = 0;
 
+            if (!retryCurrentStep)
+            {
+                StepIndex++;
+            }
+
             AddLocalEvent(new TaskLifecycleResumedEvent(Id, TaskCode, Check.NotNullOrWhiteSpace(reason, nameof(reason)), StepIndex, TraceId));
         }
 
         /// <summary>
         /// 执行 SAGA 补偿回退（步退至历史安全步骤，例如取货失败回退至对位点）
         /// </summary>
-        /// <param name="targetStepIndex">回退的目标步骤序号</param>
+        /// <param name="targetStepIndex">回退的目标步骤序号（0 至当前步骤索引）</param>
         /// <param name="reason">补偿回退原因</param>
         public void RollbackToStep(int targetStepIndex, string reason)
         {
-            if (targetStepIndex < 1 || targetStepIndex > StepIndex)
+            if (targetStepIndex < 0 || targetStepIndex > StepIndex)
             {
                 throw new BusinessException("RCS:InvalidRollbackStepIndex")
                     .WithData("TaskCode", TaskCode)

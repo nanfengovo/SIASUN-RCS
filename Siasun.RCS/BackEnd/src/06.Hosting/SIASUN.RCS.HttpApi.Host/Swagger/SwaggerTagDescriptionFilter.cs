@@ -57,6 +57,7 @@ namespace SIASUN.RCS.Swagger
                 { "OperationLog", "调度员操作与系统自审计日志" },
                 { "FlightPack", "黑匣子全时序事故取证排障包" },
                 { "DispatchIntervention", "调度员人工干预控制（取消、强制完结、指派、复位）" },
+                { "DispatchIntervention", "调度员人工干预控制（取消、强制完结、指派、复位、恢复、回滚重试）" },
                 { "LocationLock", "空间库位原子锁与人工运维管理" },
                 { "LocationMap", "业务库位与地图点位映射管理" },
                 { "LocationPlcConfig", "库位与机台设备 PLC 硬件安全联锁点表配置" },
