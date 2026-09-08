@@ -1,15 +1,14 @@
 using System;
 using SIASUN.RCS.Tasks.Events;
-using SIASUN.RCS.Tasks.Workflow;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities.Auditing;
 
 namespace SIASUN.RCS.Tasks
 {
     /// <summary>
-    /// AGV 调度任务聚合根（严格遵循 SIASUN RCS 5 状态粗粒度生命周期规范，实现 IWorkflowTask 驱动契约）
+    /// AGV 调度任务聚合根（严格遵循 SIASUN RCS 5 状态粗粒度生命周期规范）
     /// </summary>
-    public class AgvTask : FullAuditedAggregateRoot<Guid>, IWorkflowTask
+    public class AgvTask : FullAuditedAggregateRoot<Guid>
     {
         /// <summary>
         /// 业务任务编号（不可重复）
@@ -80,21 +79,6 @@ namespace SIASUN.RCS.Tasks
         /// 编译生成 OptionCode 所使用的 Schema 版本号
         /// </summary>
         public int? OptionCodeSchemaVersion { get; private set; }
-
-        /// <summary>
-        /// 绑定的声明式工作流定义编号（例如 "transfer_standard", "erack_docking"）
-        /// </summary>
-        public string? WorkflowDefinitionId { get; private set; }
-
-        /// <summary>
-        /// 工作流定义标识代号（兼容契约别名）
-        /// </summary>
-        public string? WorkflowKey => WorkflowDefinitionId;
-
-        /// <summary>
-        /// 绑定的声明式工作流版本号
-        /// </summary>
-        public int? WorkflowVersion { get; private set; }
 
         /// <summary>
         /// 全链路贯穿 TraceId
@@ -314,8 +298,7 @@ namespace SIASUN.RCS.Tasks
         /// 从 Failed 状态显式恢复至 Running（显式领域方法，严禁外部直接篡改状态属性）
         /// </summary>
         /// <param name="reason">调度员人工重试原因</param>
-        /// <param name="retryCurrentStep">是否重试当前失败步骤（true: 保持当前 StepIndex；false: 跳过当前步骤推进至下一步）</param>
-        public void ResumeFromFailure(string reason, bool retryCurrentStep = true)
+        public void ResumeFromFailure(string reason)
         {
             if (Status != AgvTaskStatus.Failed)
             {
@@ -329,22 +312,17 @@ namespace SIASUN.RCS.Tasks
             EndTime = null;
             RetryCount = 0;
 
-            if (!retryCurrentStep)
-            {
-                StepIndex++;
-            }
-
             AddLocalEvent(new TaskLifecycleResumedEvent(Id, TaskCode, Check.NotNullOrWhiteSpace(reason, nameof(reason)), StepIndex, TraceId));
         }
 
         /// <summary>
         /// 执行 SAGA 补偿回退（步退至历史安全步骤，例如取货失败回退至对位点）
         /// </summary>
-        /// <param name="targetStepIndex">回退的目标步骤序号（0 至当前步骤索引）</param>
+        /// <param name="targetStepIndex">回退的目标步骤序号</param>
         /// <param name="reason">补偿回退原因</param>
         public void RollbackToStep(int targetStepIndex, string reason)
         {
-            if (targetStepIndex < 0 || targetStepIndex > StepIndex)
+            if (targetStepIndex < 1 || targetStepIndex > StepIndex)
             {
                 throw new BusinessException("RCS:InvalidRollbackStepIndex")
                     .WithData("TaskCode", TaskCode)
@@ -505,27 +483,6 @@ namespace SIASUN.RCS.Tasks
             {
                 OptionCodeSchemaVersion = schemaVersion;
             }
-        }
-
-        /// <summary>
-        /// 绑定该任务执行所依赖的声明式工作流 Schema 编号与版本
-        /// </summary>
-        /// <param name="workflowDefinitionId">工作流代号（例如 "transfer_standard", "erack_docking"）</param>
-        /// <param name="version">指定版本号，若为空则默认为模板最新版本</param>
-        public void BindWorkflow(string workflowDefinitionId, int? version = null)
-        {
-            WorkflowDefinitionId = Check.NotNullOrWhiteSpace(workflowDefinitionId, nameof(workflowDefinitionId));
-            WorkflowVersion = version;
-        }
-
-        /// <summary>
-        /// 设置或绑定工作流定义标识键（兼容契约别名）
-        /// </summary>
-        /// <param name="workflowKey">工作流定义代号</param>
-        /// <param name="version">可选指定版本号</param>
-        public void SetWorkflowKey(string workflowKey, int? version = null)
-        {
-            BindWorkflow(workflowKey, version);
         }
     }
 }

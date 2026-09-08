@@ -23,3 +23,4 @@ namespace SIASUN.RCS.Infrastructure.Resilience
         }
     }
 }
+

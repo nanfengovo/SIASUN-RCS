@@ -38,6 +38,7 @@ using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Security.Claims;
 using SIASUN.RCS.Infrastructure.Logging;
 using SIASUN.RCS.Infrastructure.BackgroundJobs;
+using SIASUN.RCS.Adapters.Hardware;
 using SIASUN.RCS.Adapters.Passbox;
 using SIASUN.RCS.Adapters.Tm;
 using SIASUN.RCS.Infrastructure.Resilience;
@@ -60,6 +61,7 @@ namespace SIASUN.RCS;
     typeof(AbpAspNetCoreSerilogModule),
     typeof(RCSInfrastructureLoggingModule),
     typeof(RCSBackgroundJobsModule),
+    typeof(RCSAdaptersHardwareModule)
     typeof(RCSAdaptersPassboxModule),
     typeof(RCSAdaptersTmModule),
     typeof(RCSInfrastructureResilienceModule)

@@ -1,13 +1,12 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
+using SIASUN.RCS.Adapters.Hardware;
 using SIASUN.RCS.Adapters.Passbox;
 using SIASUN.RCS.Adapters.Plc.S7;
 using SIASUN.RCS.Hardware;
-using Xunit;
 
 namespace SIASUN.RCS.Infrastructure.Tests.Hardware
 {
